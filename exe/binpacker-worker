@@ -11,7 +11,7 @@ def run_rspec(files, wid, rspec_args)
   cmd = [
     "rspec",
     "--format", "json", "--out", outfile.path,
-    "--format", "progress", "--out", $stderr.fileno.to_s,
+    "--format", "progress", "--out", "/dev/stderr",
     *rspec_args,
     *files
   ]
