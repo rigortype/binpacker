@@ -26,8 +26,5 @@ jobs:
           ruby-version: "4.0"
           bundler-cache: true
 
-      - name: Install community RBS
-        run: bundle exec rbs collection install
-
       - name: Run rigor check
         run: bundle exec rigor check --no-cache
