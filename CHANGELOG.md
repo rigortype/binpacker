@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-23
+
+v0.1.0 fixes a critical correctness bug where worker processes ran serially instead of in parallel, and adds the README with setup instructions and a roadmap.
+
+### Added
+
+- **[docs]** README with setup instructions, `binpacker.yml` example, and roadmap.
+
+### Fixed
+
+- **[orchestrator]** Workers now run in parallel. Previously `Orchestrator#run` called `worker.finish` (which sent the "done" signal and then blocked waiting for results) sequentially per worker, collapsing N-way parallelism into a serial chain. Split into `signal_done` (send "done" to all workers first) and `collect_results` (collect results after all workers are running).
+
 ## [0.0.3] - 2026-06-23
 
 v0.0.3 fixes a bug where RSpec's progress output was written to a file named `2` in the working directory instead of stderr.
@@ -46,7 +58,8 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/rigortype/binpacker/compare/v0.0.3...v0.1.0
 [0.0.3]: https://github.com/rigortype/binpacker/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/rigortype/binpacker/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/rigortype/binpacker/releases/tag/v0.0.1
