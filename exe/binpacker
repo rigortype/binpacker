@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "binpacker"
+require "binpacker/cli"
+
+Binpacker::CLI.start(ARGV)

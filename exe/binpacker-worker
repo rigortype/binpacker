@@ -1,0 +1,84 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "optparse"
+require "tempfile"
+
+def run_rspec(files, _worker_id)
+  outfile = Tempfile.new("binpacker-rspec-out")
+  outfile.close
+  cmd = ["rspec", "--format", "json", "--out", outfile.path, *files]
+  success = system(*cmd)
+  results = []
+  if File.exist?(outfile.path) && File.size(outfile.path) > 0
+    data = JSON.parse(File.read(outfile.path))
+    (data["examples"] || []).each do |ex|
+      results << {
+        file: ex["file_path"], name: ex["full_description"] || ex["description"], time: ex["run_time"] || 0.0
+      }
+    end
+  end
+  outfile.unlink
+  [success ? 0 : ($?&.exitstatus || 1), results]
+end
+
+def run_minitest(files, _worker_id)
+  results = []
+  exit_code = 0
+  files.each do |file|
+    start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    s = system("ruby", "-Ilib:test", file, exception: false)
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+    results << { file: file, name: file, time: elapsed }
+    exit_code = s.exitstatus unless s.success?
+  end
+  [exit_code, results]
+end
+
+# === Main ===
+options = { runner: "rspec", id: 0 }
+OptionParser.new do |opts|
+  opts.on("--runner RUNNER", "rspec or minitest") { |v| options[:runner] = v }
+  opts.on("--id ID", "Worker ID") { |v| options[:id] = v.to_i }
+end.parse!
+
+wid = options[:id]
+$stderr.puts "[worker-#{wid}] starting with runner: #{options[:runner]}"
+$stdout.puts JSON.generate({ type: "ready" })
+$stdout.flush
+
+tests = []
+$stdin.each_line do |line|
+  data = JSON.parse(line.strip)
+  break if data["type"] == "done"
+  tests << data
+rescue JSON::ParserError
+  $stderr.puts "[worker-#{wid}] skip unparseable: #{line.strip[0..60]}"
+end
+
+$stderr.puts "[worker-#{wid}] received #{tests.size} tests"
+
+if tests.empty?
+  $stdout.puts JSON.generate({ type: "result", exit_code: 0, passed: true })
+  $stdout.flush
+  exit 0
+end
+
+files = tests.map { |t| t["file"] }.uniq
+$stderr.puts "[worker-#{wid}] running #{files.size} files"
+
+exit_code, results = case options[:runner]
+when "rspec"   then run_rspec(files, wid)
+when "minitest" then run_minitest(files, wid)
+else
+  $stderr.puts "[worker-#{wid}] unknown runner: #{options[:runner]}"
+  [1, []]
+end
+
+results.each do |r|
+  $stdout.puts JSON.generate({ type: "timing", file: r[:file], name: r[:name], time: r[:time] })
+end
+$stdout.puts JSON.generate({ type: "result", exit_code: exit_code, passed: exit_code == 0 })
+$stdout.flush
+exit exit_code
