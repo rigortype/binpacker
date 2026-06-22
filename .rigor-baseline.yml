@@ -1,0 +1,6 @@
+---
+version: 1
+ignored:
+- file: ".rigor.yml"
+  rule: rbs.coverage.missing-gem
+  count: 1
