@@ -75,3 +75,11 @@ _Avoid_: Dequeue, fetch
 **Steal**:
 When a Worker's queue is empty, the parent takes a Test from the most-loaded peer WorkerQueue and returns it to the idle Worker. The receiving Worker is unaware of the steal.
 _Avoid_: Rebalance (too general — steal is a specific mechanism within work-stealing)
+
+**Built-in adapter**:
+A first-class integration with a specific test runner (RSpec, Minitest). Handles Test discovery, Test parsing, and runner invocation for that framework. Free-form commands are not supported initially.
+_Avoid_: Plugin, driver
+
+**Passthrough arguments**:
+CLI arguments after `--` that binpacker forwards verbatim to the test runner. Example: `binpacker run -- --tag ~slow`. Kept out of `binpacker.yml` for simplicity.
+_Avoid_: Runner options, forwarded flags
