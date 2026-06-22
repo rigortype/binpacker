@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-06-23
+
+v0.0.3 fixes a bug where RSpec's progress output was written to a file named `2` in the working directory instead of stderr.
+
+### Fixed
+
+- **[worker]** RSpec progress formatter now correctly writes to stderr via `/dev/stderr` instead of creating a spurious file named `2` in the working directory.
+
 ## [0.0.2] - 2026-06-23
 
 v0.0.2 fixes incorrect handling of UTF-8 test names and file paths throughout the timing file and worker IPC pipeline, ensuring binpacker works correctly on projects with non-ASCII test descriptions or file names.
@@ -38,6 +46,7 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/rigortype/binpacker/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/rigortype/binpacker/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/rigortype/binpacker/releases/tag/v0.0.1
