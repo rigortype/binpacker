@@ -1,0 +1,3 @@
+[tools]
+"gem:rigortype" = "latest"
+ruby = "4.0"
