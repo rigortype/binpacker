@@ -34,8 +34,10 @@ module Binpacker
       total_examples = 0
       passed_examples = 0
 
+      workers.each(&:signal_done)
+
       workers.each do |worker|
-        worker.finish
+        worker.collect_results
         all_timings.concat(worker.timings)
         all_passed &&= worker.success?
         total_examples += worker.example_count

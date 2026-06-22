@@ -59,10 +59,12 @@ module Binpacker
       @stdin_w.puts JSON.generate({ file: test.file, name: test.name })
     end
 
-    def finish
+    def signal_done
       @stdin_w.puts JSON.generate({ type: "done" })
       @stdin_w.close
+    end
 
+    def collect_results
       @status = :running
       @stdout_r.each_line do |line|
         data = JSON.parse(line.strip)
