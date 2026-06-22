@@ -80,16 +80,17 @@ module Binpacker
 
     def cmd_run
       config = Config.new(profile: @profile)
-      orchestrator = Orchestrator.new(config)
+      orchestrator = Orchestrator.new(config, passthrough: @passthrough)
 
       puts "binpacker starting (#{config.worker_count} workers, profile: #{config.profile})"
       result = orchestrator.run
 
       if result[:passed]
-        puts "All tests passed."
+        puts "All #{result[:total]} examples passed across #{config.worker_count} workers."
         exit 0
       else
-        puts "Some tests failed."
+        failed = result[:total] - result[:passed_count]
+        puts "#{failed}/#{result[:total]} examples failed."
         exit 1
       end
     end

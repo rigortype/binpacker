@@ -1,21 +1,18 @@
 # frozen_string_literal: true
 
 module Binpacker
-  # Coordinates the full test run: discover → schedule → spawn workers → collect.
   class Orchestrator
-    def initialize(config)
+    def initialize(config, passthrough: [])
       @config = config
+      @passthrough = passthrough
     end
 
     def run
-      # 1. Discover tests
       tests = discover
 
-      # 2. Load timing data
       timing = Timing.new(@config.timing_file)
       timings = timing.load_with_fallback(tests)
 
-      # 3. Schedule
       scheduler = Scheduler.for(@config.scheduler["algorithm"])
       queues = scheduler.partition(
         tests: tests,
@@ -23,25 +20,26 @@ module Binpacker
         timings: timings
       )
 
-      # 4. Spawn workers and distribute
       runner_class = TestRunner.for(@config.test_runner)
       workers = queues.map.with_index do |queue, idx|
-        Worker.new(idx, runner_class).tap(&:start)
+        Worker.new(idx, runner_class, passthrough: @passthrough).tap(&:start)
       end
 
-      # 5. Feed tests to workers
       workers.zip(queues).each do |worker, queue|
         worker.send_tests(queue.remaining)
       end
 
-      # 6. Wait for all workers to finish and collect results
       all_timings = []
       all_passed = true
+      total_examples = 0
+      passed_examples = 0
 
       workers.each do |worker|
         worker.finish
         all_timings.concat(worker.timings)
         all_passed &&= worker.success?
+        total_examples += worker.example_count
+        passed_examples += worker.passed_count
       rescue WorkerError => e
         $stderr.puts "worker #{worker.id} error: #{e.message}"
         all_passed = false
@@ -49,10 +47,14 @@ module Binpacker
         worker.cleanup
       end
 
-      # 7. Append new timing data
       timing.append_all(all_timings) unless all_timings.empty?
 
-      { passed: all_passed, timings: all_timings }
+      {
+        passed: all_passed,
+        total: total_examples,
+        passed_count: passed_examples,
+        timings: all_timings
+      }
     end
 
     private

@@ -3,22 +3,18 @@
 require "json"
 
 module Binpacker
-  # Manages a single worker subprocess that executes tests.
-  #
-  # Communication protocol:
-  #   Parent → Worker (stdin):  {"file":"...","name":"..."} per test, {"type":"done"} to end.
-  #   Worker → Parent (stdout): {"type":"timing","file":"...","name":"...","time":0.123}
-  #                              {"type":"result","exit_code":0,"passed":true}
-  #                              {"type":"ready"} — worker started
   class Worker
-    attr_reader :id, :status
+    attr_reader :id, :status, :example_count, :passed_count
 
-    def initialize(id, runner_class)
+    def initialize(id, runner_class, passthrough: [])
       @id = id
       @runner_class = runner_class
+      @passthrough = passthrough
       @status = :created
       @timings = []
       @exit_code = nil
+      @example_count = 0
+      @passed_count = 0
     end
 
     def start
@@ -31,6 +27,7 @@ module Binpacker
       @pid = Process.spawn(
         RbConfig.ruby, worker_script,
         "--runner", @runner_class.runner_name,
+        *passthrough_args,
         in: @stdin_r, out: @stdout_w, err: @stderr_w,
         close_others: true
       )
@@ -38,10 +35,10 @@ module Binpacker
       @stdin_r.close; @stdout_w.close; @stderr_w.close
 
       @stderr_thread = Thread.new do
-        @stderr_r.each_line { |line| $stderr.puts "[worker-#{@id}] #{line}" }
+        @stderr_r.each_line { |line| $stderr.write line }
       end
 
-      ready_line = read_line(timeout: 10)
+      ready_line = read_line(timeout: 30)
       if ready_line
         data = JSON.parse(ready_line.strip)
         @status = :ready if data["type"] == "ready"
@@ -75,13 +72,20 @@ module Binpacker
         when "result"
           @exit_code = data["exit_code"]
           @passed = data["passed"]
+          @example_count = data["total"] || 0
+          @passed_count = data["passed_count"] || 0
+        when "output"
+          $stdout.write data["text"] if data["text"]
         end
       rescue JSON::ParserError
-        # skip unparseable lines
+        $stdout.write line
       end
 
       Process.wait(@pid)
       @status = :finished
+    rescue Errno::ECHILD
+      @status = :crashed
+      @passed = false
     end
 
     def timings
@@ -93,12 +97,24 @@ module Binpacker
     end
 
     def cleanup
+      kill! if @status == :running || @status == :ready
       [@stdin_w, @stdout_r, @stderr_r].each { |io| io&.close unless io&.closed? }
       @stderr_thread&.kill
     rescue IOError
     end
 
     private
+
+    def passthrough_args
+      return [] if @passthrough.empty?
+      @passthrough.flat_map { |arg| ["--rspec-arg", arg] }
+    end
+
+    def kill!
+      Process.kill("TERM", @pid)
+      Process.wait(@pid)
+    rescue Errno::ESRCH, Errno::ECHILD
+    end
 
     def read_line(timeout: 1)
       io = [@stdout_r]
