@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-06-23
+
+v0.0.2 fixes incorrect handling of UTF-8 test names and file paths throughout the timing file and worker IPC pipeline, ensuring binpacker works correctly on projects with non-ASCII test descriptions or file names.
+
+### Fixed
+
+- **[timing]** Timing file reads and writes now use UTF-8 encoding, preventing `Encoding::CompatibilityError` on test names or file paths containing non-ASCII characters.
+- **[worker]** Worker process pipes now use UTF-8 encoding, preserving non-ASCII test names through the IPC channel and the RSpec JSON output reader.
+
 ## [0.0.1] - 2026-06-23
 
 First public release. Minimizes CI test-suite makespan by solving an
@@ -29,5 +38,6 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/rigortype/binpacker/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/rigortype/binpacker/releases/tag/v0.0.1
