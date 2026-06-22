@@ -60,3 +60,18 @@ A CI run that uses cached Timing files for optimal scheduling. No AI agent invol
 
 **Improve workflow**:
 An optional AI-agent-driven workflow (`/binpacker-improve`) that fetches recent CI timing data, analyzes gap between predicted and actual durations, and proposes config adjustments.
+
+**WorkerQueue**:
+A per-Worker ordered list of Tests assigned by the scheduler. Owned by the parent process; Workers pull from their queue via pipe.
+_Avoid_: Task list, assignment
+
+**Pipe-based IPC**:
+A synchronous `IO.pipe` between the parent and each spawned Worker. The Worker sends a pull request over the pipe and blocks until the parent responds with the next Test (or `nil`).
+
+**Test pull**:
+The request a Worker sends over the pipe to ask the parent for its next Test. The parent may return a Test from the Worker's own queue or a stolen one.
+_Avoid_: Dequeue, fetch
+
+**Steal**:
+When a Worker's queue is empty, the parent takes a Test from the most-loaded peer WorkerQueue and returns it to the idle Worker. The receiving Worker is unaware of the steal.
+_Avoid_: Rebalance (too general — steal is a specific mechanism within work-stealing)
