@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-06-23
+## [0.0.1] - 2026-06-23
 
 First public release. Minimizes CI test-suite makespan by solving an
 identical-machines scheduling problem with LPT scheduling and optional
@@ -29,5 +29,5 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/rigortype/binpacker/releases/tag/v0.1.0
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/rigortype/binpacker/releases/tag/v0.0.1
