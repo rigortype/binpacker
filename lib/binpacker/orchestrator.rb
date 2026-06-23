@@ -4,9 +4,10 @@ module Binpacker
   class Orchestrator
     BATCH_SIZE = 10
 
-    def initialize(config, passthrough: [])
+    def initialize(config, passthrough: [], quiet: false)
       @config = config
       @passthrough = passthrough
+      @quiet = quiet
     end
 
     def run
@@ -23,7 +24,7 @@ module Binpacker
 
       runner_class = TestRunner.for(@config.test_runner)
       workers = queues.map.with_index do |queue, idx|
-        Worker.new(idx, runner_class, passthrough: @passthrough).tap(&:start)
+        Worker.new(idx, runner_class, passthrough: @passthrough, quiet: @quiet).tap(&:start)
       end
 
       if @config.scheduler["steal_enabled"]
@@ -47,9 +48,14 @@ module Binpacker
     end
 
     def run_static(workers, queues, timing, tests)
+      queue_totals = queues.map(&:size)
+      progress = ProgressDisplay.new(workers.size)
+
       workers.zip(queues).each do |worker, queue|
         worker.send_tests(queue.remaining)
+        progress.update(worker.id, done: 0, total: queue_totals[worker.id], file: queue.remaining.first&.file || "")
       end
+      progress.refresh
 
       workers.each(&:signal_done)
 
@@ -57,6 +63,9 @@ module Binpacker
       all_passed = true
       total_examples = 0
       passed_examples = 0
+      worker_time = Array.new(workers.size, 0.0)
+      worker_examples = Array.new(workers.size, 0)
+      worker_passed = Array.new(workers.size, 0)
 
       workers.each do |worker|
         worker.collect_results
@@ -64,12 +73,29 @@ module Binpacker
         all_passed &&= worker.success?
         total_examples += worker.example_count
         passed_examples += worker.passed_count
+        worker_examples[worker.id] = worker.example_count
+        worker_passed[worker.id] = worker.passed_count
+        worker_time[worker.id] = worker.timings.sum { |t| t[:time] }
+        progress.update(worker.id, done: queue_totals[worker.id], total: queue_totals[worker.id], file: "done")
+        progress.refresh
       rescue WorkerError => e
         $stderr.puts "worker #{worker.id} error: #{e.message}"
         all_passed = false
       ensure
         worker.cleanup
       end
+
+      progress.finish
+
+      worker_stats = workers.map.with_index do |w, i|
+        {
+          files: queue_totals[i],
+          total_time: worker_time[i],
+          examples: worker_examples[i],
+          passed: worker_passed[i]
+        }
+      end
+      progress.summary(worker_stats)
 
       finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
     end
@@ -145,12 +171,14 @@ module Binpacker
             batch_sizes[ready.id] = next_batch.size
             current_file = next_batch.first&.file || ""
             progress.update(ready.id, done: worker_done[ready.id], total: queue_totals[ready.id], file: current_file)
+            progress.refresh
           else
             ready.signal_done
             all_timings.concat(ready.timings)
             active.delete(ready)
             worker_done[ready.id] = queue_totals[ready.id]
             progress.update(ready.id, done: queue_totals[ready.id], total: queue_totals[ready.id], file: "done")
+            progress.refresh
           end
         rescue WorkerError => e
           $stderr.puts "worker #{ready.id} error: #{e.message}"

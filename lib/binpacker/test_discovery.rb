@@ -36,7 +36,34 @@ module Binpacker
 
   class RSpecDiscovery < TestDiscovery
     def enumerate
-      glob_files.map { |f| Test.new(file: f, name: f) }
+      if @config.respond_to?(:test_granularity) && @config.test_granularity == "example"
+        enumerate_examples
+      else
+        glob_files.map { |f| Test.new(file: f, name: f) }
+      end
+    end
+
+    private
+
+    def enumerate_examples
+      files = glob_files
+      return [] if files.empty?
+
+      examples = run_dry_run(files)
+      examples.map { |ex|
+        Test.new(
+          file: ex["file_path"],
+          name: ex["full_description"] || ex["description"]
+        )
+      }
+    end
+
+    def run_dry_run(files)
+      cmd = ["rspec", "--dry-run", "--format", "json", *files, { err: File::NULL }]
+      out = IO.popen(cmd) { |io| io.read }
+      JSON.parse(out)["examples"] || []
+    rescue JSON::ParserError
+      raise DiscoveryError, "failed to parse rspec --dry-run output"
     end
   end
 

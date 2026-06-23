@@ -10,6 +10,7 @@ module Binpacker
     DEFAULTS = {
       "test_runner" => "rspec",
       "workers" => "auto",
+      "test_granularity" => "file",
       "timing_file" => "binpacker.timings",
       "test_pattern" => "spec/**/*_spec.rb",
       "test_exclude" => [],

@@ -6,10 +6,11 @@ module Binpacker
   class Worker
     attr_reader :id, :status, :example_count, :passed_count
 
-    def initialize(id, runner_class, passthrough: [])
+    def initialize(id, runner_class, passthrough: [], quiet: false)
       @id = id
       @runner_class = runner_class
       @passthrough = passthrough
+      @quiet = quiet
       @status = :created
       @timings = []
       @exit_code = 0
@@ -36,7 +37,7 @@ module Binpacker
       @stdin_r.close; @stdout_w.close; @stderr_w.close
 
       @stderr_thread = Thread.new do
-        @stderr_r.each_line { |line| $stderr.write line }
+        @stderr_r.each_line { |line| $stderr.write line unless @quiet }
       end
 
       ready_line = read_line(timeout: 30)
