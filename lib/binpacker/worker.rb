@@ -12,6 +12,7 @@ module Binpacker
       @passthrough = passthrough
       @status = :created
       @timings = []
+      @batch_timings_buffer = []
       @exit_code = 0
       @example_count = 0
       @passed_count = 0
@@ -82,7 +83,7 @@ module Binpacker
           if data["type"] == "ready"
             return true
           elsif data["type"] == "timing"
-            @timings << { file: data["file"], name: data["name"], time: data["time"] }
+            @batch_timings_buffer << { file: data["file"], name: data["name"], time: data["time"] }
           elsif data["type"] == "batch_result"
             @batch_buffer = data
             return true
@@ -96,7 +97,8 @@ module Binpacker
     def collect_batch
       buffered = @batch_buffer
       @batch_buffer = nil
-      batch_timings = []
+      batch_timings = @batch_timings_buffer
+      @batch_timings_buffer = []
       batch_examples = 0
       batch_passed = 0
       exit_ok = true
