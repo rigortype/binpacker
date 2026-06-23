@@ -147,6 +147,7 @@ module Binpacker
             progress.update(ready.id, done: worker_done[ready.id], total: queue_totals[ready.id], file: current_file)
           else
             ready.signal_done
+            all_timings.concat(ready.timings)
             active.delete(ready)
             worker_done[ready.id] = queue_totals[ready.id]
             progress.update(ready.id, done: queue_totals[ready.id], total: queue_totals[ready.id], file: "done")
