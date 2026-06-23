@@ -81,6 +81,12 @@ module Binpacker
       passed_examples = 0
       active = []
 
+      queue_totals = queues.map(&:size)
+      worker_done = Array.new(workers.size, 0)
+      batch_sizes = Array.new(workers.size, 0)
+
+      progress = ProgressDisplay.new(workers.size)
+
       workers.zip(queues).each do |worker, queue|
         batch = drain_batch(queue)
         if batch.empty?
@@ -91,15 +97,20 @@ module Binpacker
           total_examples += worker.example_count
           passed_examples += worker.passed_count
           worker.cleanup
+          worker_done[worker.id] = queue_totals[worker.id]
+          progress.update(worker.id, done: worker_done[worker.id], total: queue_totals[worker.id], file: "done")
         else
           worker.send_tests(batch)
           worker.batch_done
           active << worker
+          batch_sizes[worker.id] = batch.size
+          current_file = batch.first&.file || ""
+          progress.update(worker.id, done: 0, total: queue_totals[worker.id], file: current_file)
         end
       end
 
       until active.empty?
-        ready = active.find { |w| w.wait_ready }
+        ready = active.find { |w| w.wait_for_batch }
         unless ready
           active.reject! { |w| w.status == :crashed || w.status == :error }
           sleep 0.1
@@ -107,11 +118,11 @@ module Binpacker
         end
 
         begin
-          batch = ready.collect_batch
-          all_timings.concat(batch[:timings])
-          all_passed &&= batch[:exit_code] == 0
-          total_examples += batch[:examples]
-          passed_examples += batch[:passed]
+          all_passed &&= ready.success?
+          total_examples += ready.example_count
+          passed_examples += ready.passed_count
+
+          worker_done[ready.id] += batch_sizes[ready.id]
 
           own_queue = queues[ready.id]
           next_batch = drain_batch(own_queue)
@@ -124,9 +135,14 @@ module Binpacker
           if next_batch.any?
             ready.send_tests(next_batch)
             ready.batch_done
+            batch_sizes[ready.id] = next_batch.size
+            current_file = next_batch.first&.file || ""
+            progress.update(ready.id, done: worker_done[ready.id], total: queue_totals[ready.id], file: current_file)
           else
             ready.signal_done
             active.delete(ready)
+            worker_done[ready.id] = queue_totals[ready.id]
+            progress.update(ready.id, done: queue_totals[ready.id], total: queue_totals[ready.id], file: "done")
           end
         rescue WorkerError => e
           $stderr.puts "worker #{ready.id} error: #{e.message}"
@@ -135,6 +151,7 @@ module Binpacker
         end
       end
 
+      progress.finish
       workers.each(&:cleanup)
       finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
     end

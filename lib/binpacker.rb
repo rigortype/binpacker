@@ -10,6 +10,7 @@ require_relative "binpacker/worker"
 require_relative "binpacker/test_runner"
 require_relative "binpacker/calibration"
 require_relative "binpacker/orchestrator"
+require_relative "binpacker/progress"
 
 module Binpacker
   Error = Class.new(StandardError)

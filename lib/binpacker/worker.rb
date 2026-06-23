@@ -69,70 +69,43 @@ module Binpacker
       @stdin_w.close
     end
 
-    def wait_ready
+    def wait_for_batch
       deadline = Time.now + 300
       while Time.now < deadline
         begin
           line = read_line(timeout: 1)
-          return false unless line
-
+          return nil unless line
           next unless line.strip.start_with?("{")
-
           data = JSON.parse(line.strip)
-          if data["type"] == "ready"
-            return true
-          elsif data["type"] == "timing"
+
+          if data["type"] == "timing"
             @timings << { file: data["file"], name: data["name"], time: data["time"] }
           elsif data["type"] == "batch_result"
-            @batch_buffer = data
-            return true
-          end
-        rescue JSON::ParserError
-        end
-      end
-      false
-    end
-
-    def collect_batch
-      buffered = @batch_buffer
-      @batch_buffer = nil
-      batch_timings = []
-      batch_examples = 0
-      batch_passed = 0
-      exit_ok = true
-
-      if buffered
-        exit_ok = buffered["passed"]
-        batch_examples = buffered["total"] || 0
-        batch_passed = buffered["passed_count"] || 0
-      else
-        @stdout_r.each_line do |line|
-          data = JSON.parse(line.strip)
-          case data["type"]
-          when "timing"
-            batch_timings << { file: data["file"], name: data["name"], time: data["time"] }
-          when "batch_result"
-            exit_ok = data["passed"]
-            batch_examples = data["total"] || 0
-            batch_passed = data["passed_count"] || 0
-            break
-          when "result"
+            @exit_code = data["passed"] ? 0 : 1
+            @example_count += data["total"] || 0
+            @passed_count += data["passed_count"] || 0
+            return {
+              timings: [],
+              exit_code: @exit_code,
+              examples: data["total"] || 0,
+              passed: data["passed_count"] || 0
+            }
+          elsif data["type"] == "result"
             @exit_code = data["exit_code"]
             @passed = data["passed"]
             @example_count = data["total"] || 0
             @passed_count = data["passed_count"] || 0
-            break
+            return {
+              timings: [],
+              exit_code: @exit_code,
+              examples: @example_count,
+              passed: @passed_count
+            }
           end
         rescue JSON::ParserError
         end
       end
-
-      @timings.concat(batch_timings)
-      @example_count += batch_examples
-      @passed_count += batch_passed
-      @exit_code = exit_ok ? 0 : 1 unless exit_ok
-
-      { timings: batch_timings, exit_code: @exit_code, examples: batch_examples, passed: batch_passed }
+      nil
     end
 
     def collect_results
