@@ -1,3 +1,8 @@
+## rigor CLI
+
+`rigor` (`rigortype` gem) is installed as a standalone gem — **never** invoke it via `bundle exec rigor`.
+Run it directly as `rigor <command>` (e.g. `rigor sig-gen --write lib`).
+
 ## Agent skills
 
 ### Issue tracker
