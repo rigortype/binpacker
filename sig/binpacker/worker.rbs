@@ -1,0 +1,12 @@
+module Binpacker
+  class Worker
+    def initialize: (untyped, untyped, ?passthrough: untyped, ?quiet: untyped) -> void
+    def start: () -> Binpacker::Worker
+    def send_test: (untyped) -> nil
+    def batch_done: () -> nil
+    def wait_for_batch: () -> (nil | { timings: [], exit_code: 0 | 1, examples: untyped, passed: untyped } | { timings: [], exit_code: untyped, examples: untyped, passed: untyped })
+    def collect_results: () -> :finished
+    def timings: () -> Array[untyped]
+    def status: () -> (:crashed | :created | :error | :finished | :ready | :running)
+  end
+end

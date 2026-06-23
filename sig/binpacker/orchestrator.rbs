@@ -1,0 +1,6 @@
+module Binpacker
+  class Orchestrator
+    def initialize: (untyped, ?passthrough: untyped, ?quiet: untyped) -> void
+    def run: () -> { passed: untyped, total: untyped, passed_count: untyped, timings: Array[untyped], empty_filter: untyped }
+  end
+end

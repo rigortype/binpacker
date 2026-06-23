@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  spec.files = Dir["lib/**/*.rb", "exe/*", "LICENSE"]
+  spec.files = Dir["lib/**/*.rb", "sig/**/*.rbs", "exe/*", "LICENSE"]
   spec.bindir = "exe"
   spec.executables = ["binpacker"]
 end

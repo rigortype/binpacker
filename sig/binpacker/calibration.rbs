@@ -1,0 +1,6 @@
+module Binpacker
+  class Calibration
+    def initialize: (untyped) -> void
+    def run: (untyped) -> Array[untyped]
+  end
+end

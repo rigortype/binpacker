@@ -1,0 +1,7 @@
+module Binpacker
+  class CLI
+    def self.start: (untyped) -> nil
+    def initialize: (untyped) -> void
+    def run: () -> nil
+  end
+end

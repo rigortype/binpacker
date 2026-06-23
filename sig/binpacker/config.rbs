@@ -1,0 +1,6 @@
+module Binpacker
+  class Config
+    def initialize: (?profile: untyped, ?config_path: untyped) -> void
+    def worker_count: () -> Integer
+  end
+end

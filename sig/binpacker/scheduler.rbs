@@ -1,0 +1,5 @@
+module Binpacker
+  class Scheduler
+    def self.for: (untyped) -> (Binpacker::LptScheduler | Binpacker::MultifitScheduler)
+  end
+end

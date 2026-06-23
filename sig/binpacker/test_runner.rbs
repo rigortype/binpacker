@@ -1,0 +1,13 @@
+module Binpacker
+  class TestRunner
+    def self.runner_name: () -> bot
+    def self.for: (untyped) -> (singleton(Binpacker::MinitestRunner) | singleton(Binpacker::RSpecRunner))
+  end
+  class RSpecRunner
+    def self.runner_name: () -> "rspec"
+    def self.discovery_command: (untyped) -> Array[untyped]
+  end
+  class MinitestRunner
+    def self.runner_name: () -> "minitest"
+  end
+end

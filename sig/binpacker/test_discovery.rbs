@@ -1,0 +1,12 @@
+module Binpacker
+  def key: () -> [untyped, String]
+  class TestDiscovery
+    def initialize: (untyped) -> void
+    def enumerate: () -> bot
+  end
+  class MinitestDiscovery
+    def enumerate: () -> Array[Binpacker::Test]
+  end
+  class Test
+  end
+end

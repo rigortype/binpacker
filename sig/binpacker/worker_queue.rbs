@@ -1,0 +1,6 @@
+module Binpacker
+  class WorkerQueue
+    def initialize: (untyped, ?untyped) -> void
+    def empty?: () -> (false | true)
+  end
+end

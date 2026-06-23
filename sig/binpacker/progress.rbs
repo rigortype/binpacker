@@ -1,0 +1,5 @@
+module Binpacker
+  class ProgressDisplay
+    def initialize: (untyped, ?tty: untyped) -> void
+  end
+end
