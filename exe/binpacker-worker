@@ -3,6 +3,7 @@
 
 require "json"
 require "optparse"
+require "set"
 require "tempfile"
 
 begin
@@ -45,40 +46,95 @@ ensure
   progress_outfile&.unlink
 end
 
-def run_minitest(files, wid, _args)
+def add_project_load_paths
+  %w[lib test].each do |path|
+    expanded = File.expand_path(path)
+    $LOAD_PATH.unshift(expanded) if Dir.exist?(expanded) && !$LOAD_PATH.include?(expanded)
+  end
+end
+
+def run_minitest_after_run_hooks
+  return unless Minitest.class_variable_defined?(:@@after_run)
+
+  Minitest.class_variable_get(:@@after_run).reverse_each(&:call)
+end
+
+def run_minitest(tests, wid, minitest_args)
+  unless defined?(Minitest)
+    $stderr.puts "[worker-#{wid}] minitest is not available"
+    return [1, [], 0, 0]
+  end
+
   def Minitest.autorun; end
-  Minitest.seed = 42
+  add_project_load_paths
 
-  results = []
-  failures = 0
+  options = Minitest.process_args(minitest_args.dup)
+  options[:io] = $stderr
+  Minitest.seed = options[:seed]
+  srand Minitest.seed
 
-  files.each do |file|
+  selected = []
+  tests.group_by { |test| test["file"] }.each do |file, test_entries|
     path = File.expand_path(file)
+    requested_names = test_entries.map { |test| test["name"] }.to_set
     klasses_before = Minitest::Runnable.runnables.dup
     $stderr.puts "[worker-#{wid}] loading #{file}"
     load path
-    new_klasses = Minitest::Runnable.runnables - klasses_before
 
-    next unless new_klasses.any?
-
-    reporter = TimingReporter.new
-    new_klasses.each do |klass|
-      klass.runnable_methods.each do |method_name|
-        Minitest::Runnable.run(klass, method_name, reporter)
+    (Minitest::Runnable.runnables - klasses_before).each do |klass|
+      klass.filter_runnable_methods(options).each do |method_name|
+        full_name = "#{klass}##{method_name}"
+        selected << [klass, method_name, file, full_name] if requested_names.include?(full_name)
       end
     end
+  rescue StandardError => e
+    $stderr.puts "[worker-#{wid}] minitest load failed for #{file}: #{e.class}: #{e.message}"
+    return [1, [], 0, 0]
+  end
 
-    reporter.results.each do |r|
-      results << {
-        file: file,
-        name: "#{r.klass}##{r.name}",
-        time: r.time
-      }
-      failures += 1 unless r.passed?
+  return [0, [], 0, 0] if selected.empty?
+
+  timing_reporter = TimingReporter.new
+  reporter = Minitest::CompositeReporter.new
+  reporter << Minitest::SummaryReporter.new($stderr, options)
+  reporter << Minitest::ProgressReporter.new($stderr, options) unless options[:quiet]
+  reporter << timing_reporter
+
+  Minitest.reporter = reporter
+  Minitest.init_plugins(options)
+  Minitest.reporter = nil
+
+  selected_files = selected.to_h { |_klass, _method_name, file, full_name| [full_name, file] }
+
+  Minitest.parallel_executor.start if Minitest.parallel_executor.respond_to?(:start)
+  reporter.start
+  hook_error = nil
+  begin
+    selected.each do |klass, method_name, _file, _full_name|
+      klass.run(klass, method_name, reporter)
+    end
+  ensure
+    Minitest.parallel_executor.shutdown if Minitest.parallel_executor.respond_to?(:shutdown)
+    reporter.report
+    begin
+      run_minitest_after_run_hooks
+    rescue StandardError => e
+      hook_error = e
+      $stderr.puts "[worker-#{wid}] minitest after_run failed: #{e.class}: #{e.message}"
     end
   end
 
-  exit_code = failures > 0 ? 1 : 0
+  failures = timing_reporter.results.count { |result| !result.passed? }
+  results = timing_reporter.results.map do |result|
+    full_name = "#{result.klass}##{result.name}"
+    {
+      file: selected_files.fetch(full_name, result.source_location.first),
+      name: full_name,
+      time: result.time
+    }
+  end
+
+  exit_code = reporter.passed? && hook_error.nil? ? 0 : 1
   passed = results.size - failures
   [exit_code, results, results.size, passed]
 end
@@ -100,10 +156,12 @@ end
 
 options = { runner: "rspec", id: 0 }
 rspec_args = []
+minitest_args = []
 OptionParser.new do |opts|
   opts.on("--runner RUNNER", "rspec or minitest") { |v| options[:runner] = v }
   opts.on("--id ID", "Worker ID") { |v| options[:id] = v.to_i }
   opts.on("--rspec-arg ARG", "Pass-through to rspec") { |v| rspec_args << v }
+  opts.on("--minitest-arg ARG", "Pass-through to minitest") { |v| minitest_args << v }
 end.parse!
 
 wid = options[:id]
@@ -135,7 +193,7 @@ loop do
 
   exit_code, results, total, passed = case options[:runner]
   when "rspec"   then run_rspec(files, wid, rspec_args)
-  when "minitest" then run_minitest(files, wid, [])
+  when "minitest" then run_minitest(tests, wid, minitest_args)
   else
     $stderr.puts "[worker-#{wid}] unknown runner: #{options[:runner]}"
     [1, [], 0, 0]

@@ -120,15 +120,27 @@ module Binpacker
 
       puts "binpacker starting (#{config.worker_count} workers, profile: #{config.profile})"
       result = orchestrator.run
+      unit = test_unit_label(config)
 
       if result[:passed]
-        puts "All #{result[:total]} examples passed across #{config.worker_count} workers."
+        puts "All #{result[:total]} #{pluralize(result[:total], unit)} passed across #{config.worker_count} workers."
         exit 0
+      elsif result[:empty_filter]
+        puts "No tests matched the Minitest filter."
+        exit 1
       else
         failed = result[:total] - result[:passed_count]
-        puts "#{failed}/#{result[:total]} examples failed."
+        puts "#{failed}/#{result[:total]} #{pluralize(failed, unit)} failed."
         exit 1
       end
+    end
+
+    def test_unit_label(config)
+      config.test_runner == "rspec" ? "example" : "test"
+    end
+
+    def pluralize(count, word)
+      count == 1 ? word : "#{word}s"
     end
 
     def print_help

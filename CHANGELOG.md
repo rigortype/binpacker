@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- **[runner]** Add Minitest support.
+
 ### Fixed
 
 - **[worker]** RSpec progress formatter output no longer depends on opening `/dev/stderr`, avoiding `Errno::EPERM` in restricted environments.
