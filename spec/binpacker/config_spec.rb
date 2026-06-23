@@ -18,6 +18,9 @@ RSpec.describe Binpacker::Config do
   end
 
   describe "profile resolution" do
+    around do |example|
+      with_env("CI" => nil, "GITHUB_ACTIONS" => nil, "GITLAB_CI" => nil, "JENKINS_HOME" => nil) { example.run }
+    end
     it "defaults to 'default' when no env or CI" do
       write_config(<<~YAML)
         profiles:
@@ -79,6 +82,9 @@ RSpec.describe Binpacker::Config do
   end
 
   describe "defaults" do
+    around do |example|
+      with_env("CI" => nil, "GITHUB_ACTIONS" => nil, "GITLAB_CI" => nil, "JENKINS_HOME" => nil) { example.run }
+    end
     it "uses built-in defaults when no config exists" do
       config = described_class.new(config_path: config_path)
       expect(config.test_runner).to eq("rspec")
