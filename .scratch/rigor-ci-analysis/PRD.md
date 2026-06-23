@@ -101,7 +101,7 @@ Tier breakdown:
 
 | # | Slug | Priority | Status |
 |---|------|----------|--------|
-| 01 | lpt-balance | High | needs-triage |
-| 02 | cache-miss-optimization | High | needs-triage |
-| 03 | precision-improvement | Medium | needs-triage |
-| 04 | progress-logging | Low | needs-triage |
+| 01 | lpt-balance | High | **resolved** — default → multifit (71b15bc) |
+| 02 | cache-miss-optimization | High | needs-triage (scope: rigortype/rigor CI) |
+| 03 | precision-improvement | Medium | needs-triage (scope: rigortype/rigor) |
+| 04 | progress-logging | Low | **resolved** — CI display fix (f1adbf1) |

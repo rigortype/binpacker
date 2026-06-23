@@ -1,6 +1,7 @@
 # 01 — binpacker LPT scheduling balance improvement
 
 Status: needs-triage
+Resolved: Default algorithm switched from `lpt` to `multifit` (71b15bc)
 
 ## Problem
 

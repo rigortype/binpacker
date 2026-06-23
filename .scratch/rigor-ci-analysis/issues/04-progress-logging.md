@@ -1,6 +1,7 @@
 # 04 — binpacker progress logging anomaly
 
 Status: needs-triage
+Resolved: CI progress display fixed (f1adbf1)
 
 ## Problem
 
