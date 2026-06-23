@@ -6,8 +6,8 @@ Gem::Specification.new do |spec|
   spec.name    = "binpacker"
   spec.version = Binpacker::VERSION
   spec.authors = ["megurine"]
-  spec.summary = "Minimize CI test-suite makespan by solving an identical-machines scheduling problem"
-  spec.description = "A test runner wrapper that manages worker processes and distributes tests among them using LPT scheduling with optional work-stealing."
+  spec.summary = "Reduce CI test-suite makespan via identical-machines scheduling"
+  spec.description = "A test runner wrapper that models test distribution as an identical-machines scheduling problem and assigns tests to worker processes using LPT scheduling, with optional work-stealing."
   spec.license = "MPL-2.0"
 
   spec.required_ruby_version = ">= 3.2"

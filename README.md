@@ -3,7 +3,7 @@
 [![Gem Version](https://badge.fury.io/rb/binpacker.svg?icon=si%3Arubygems)](https://badge.fury.io/rb/binpacker)
 [![GitHub License](https://img.shields.io/github/license/rigortype/rigor)](https://github.com/rigortype/rigor/blob/master/LICENSE)
 
-A test runner wrapper that minimizes CI makespan by solving the [identical-machines scheduling problem] (also known as the [bin packing problem]): distribute tests across N worker processes using LPT (Longest Processing Time first) scheduling with optional work-stealing.
+A test runner wrapper that reduces CI makespan by applying LPT (Longest Processing Time first) scheduling to the [identical-machines scheduling problem]: assign tests to N worker processes so that the maximum worker runtime is minimized. This is closely related to the [bin packing problem], with optional work-stealing.
 
 ## Setup
 
