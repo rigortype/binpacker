@@ -88,7 +88,7 @@ RSpec.describe Binpacker::Config do
     it "uses built-in defaults when no config exists" do
       config = described_class.new(config_path: config_path)
       expect(config.test_runner).to eq("rspec")
-      expect(config.scheduler["algorithm"]).to eq("lpt")
+      expect(config.scheduler["algorithm"]).to eq("multifit")
     end
 
     it "returns CPU count for workers: auto" do

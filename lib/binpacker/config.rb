@@ -17,7 +17,7 @@ module Binpacker
       "scheduler" => {
         "strategy" => "static",
         "steal_enabled" => false,
-        "algorithm" => "lpt"
+        "algorithm" => "multifit"
       }
     }.freeze
 
