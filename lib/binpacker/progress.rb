@@ -22,7 +22,9 @@ module Binpacker
         w[:file] = file
         w[:elapsed] = elapsed
       end
+    end
 
+    def refresh
       if @tty
         redraw
       else
@@ -37,21 +39,24 @@ module Binpacker
     end
 
     def summary(worker_stats)
-      return if worker_stats.empty?
+      active = worker_stats.reject { |s| s[:files] == 0 && s[:examples] == 0 }
+      return if active.empty?
 
-      total_time = worker_stats.sum { |s| s[:total_time] }
-      times = worker_stats.map { |s| s[:total_time] }
-      mean = total_time / worker_stats.size
+      active.each_with_index do |s, i|
+        t = format_time(s[:total_time])
+        wid = worker_stats.index(s)
+        $stdout.puts "  Worker #{wid}: #{s[:files]} files, #{t} | #{s[:examples]} examples, #{s[:passed]} passed"
+      end
+      total_files = active.sum { |s| s[:files] }
+      total_time = active.sum { |s| s[:total_time] }
+      total_examples = active.sum { |s| s[:examples] }
+      times = active.map { |s| s[:total_time] }
+      mean = total_time / active.size
       max_dev = times.map { |t| (t - mean).abs }.max
       dev_pct = mean > 0 ? (max_dev / mean * 100).round(1) : 0
 
-      $stdout.puts
-      worker_stats.each_with_index do |s, i|
-        t = format_time(s[:total_time])
-        $stdout.puts "  Worker #{i}: #{s[:files]} files, #{t} | #{s[:examples]} examples, #{s[:passed]} passed"
-      end
       $stdout.puts "  ──"
-      $stdout.puts "  Total: #{worker_stats.sum { |s| s[:files] }} files, #{format_time(total_time)} | #{worker_stats.sum { |s| s[:examples] }} examples"
+      $stdout.puts "  Total: #{total_files} files, #{format_time(total_time)} | #{total_examples} examples"
       $stdout.puts "  Balance: max deviation #{format_time(max_dev)} (#{dev_pct}%)"
     end
 

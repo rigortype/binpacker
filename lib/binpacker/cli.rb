@@ -14,6 +14,7 @@ module Binpacker
       @command = nil
       @profile = nil
       @passthrough = []
+      @quiet = false
       parse!
     end
 
@@ -52,6 +53,10 @@ module Binpacker
 
         opts.on("--help", "Show help") do
           @command ||= "--help"
+        end
+
+        opts.on("--quiet", "Suppress worker output") do
+          @quiet = true
         end
       end
 
@@ -116,7 +121,7 @@ module Binpacker
 
     def cmd_run
       config = Config.new(profile: @profile)
-      orchestrator = Orchestrator.new(config, passthrough: @passthrough)
+      orchestrator = Orchestrator.new(config, passthrough: @passthrough, quiet: @quiet)
 
       puts "binpacker starting (#{config.worker_count} workers, profile: #{config.profile})"
       result = orchestrator.run
