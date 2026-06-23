@@ -9,7 +9,7 @@ module Binpacker
       @tty = tty
       @workers = Array.new(worker_count) { { done: 0, total: 0, file: "", elapsed: 0.0 } }
       @start = Time.now
-      @last_ci_output = Time.now - CI_INTERVAL
+      @last_ci_output = Time.at(Time.now.to_f - CI_INTERVAL)
       @lines_written = 0
       @mutex = Mutex.new
     end
