@@ -84,6 +84,9 @@ module Binpacker
       queue_totals = queues.map(&:size)
       worker_done = Array.new(workers.size, 0)
       batch_sizes = Array.new(workers.size, 0)
+      worker_time = Array.new(workers.size, 0.0)
+      worker_examples = Array.new(workers.size, 0)
+      worker_passed = Array.new(workers.size, 0)
 
       progress = ProgressDisplay.new(workers.size)
 
@@ -96,6 +99,8 @@ module Binpacker
           all_passed &&= worker.success?
           total_examples += worker.example_count
           passed_examples += worker.passed_count
+          worker_examples[worker.id] = worker.example_count
+          worker_passed[worker.id] = worker.passed_count
           worker.cleanup
           worker_done[worker.id] = queue_totals[worker.id]
           progress.update(worker.id, done: worker_done[worker.id], total: queue_totals[worker.id], file: "done")
@@ -123,6 +128,8 @@ module Binpacker
           passed_examples += ready.passed_count
 
           worker_done[ready.id] += batch_sizes[ready.id]
+          worker_examples[ready.id] = ready.example_count
+          worker_passed[ready.id] = ready.passed_count
 
           own_queue = queues[ready.id]
           next_batch = drain_batch(own_queue)
@@ -152,6 +159,18 @@ module Binpacker
       end
 
       progress.finish
+
+      worker_stats = workers.map.with_index do |w, i|
+        tw = w.timings.sum { |t| t[:time] }
+        {
+          files: queue_totals[i],
+          total_time: tw > 0 ? tw : worker_time[i],
+          examples: worker_examples[i],
+          passed: worker_passed[i]
+        }
+      end
+      progress.summary(worker_stats)
+
       workers.each(&:cleanup)
       finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
     end
