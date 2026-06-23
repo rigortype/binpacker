@@ -97,39 +97,45 @@ OptionParser.new do |opts|
 end.parse!
 
 wid = options[:id]
+exit_code = 0
 $stderr.puts "[worker-#{wid}] #{options[:runner]} worker started"
-$stdout.puts JSON.generate({ type: "ready" })
-$stdout.flush
 
-tests = []
-$stdin.each_line do |line|
-  data = JSON.parse(line.strip)
-  break if data["type"] == "done"
-  tests << data
-rescue JSON::ParserError
-  $stderr.puts "[worker-#{wid}] skip: #{line.strip[0..60]}"
-end
-
-if tests.empty?
-  $stdout.puts JSON.generate({ type: "result", exit_code: 0, passed: true, total: 0, passed_count: 0 })
+loop do
+  $stdout.puts JSON.generate({ type: "ready" })
   $stdout.flush
-  exit 0
+
+  tests = []
+  done_or_eof = false
+  $stdin.each_line do |line|
+    data = JSON.parse(line.strip)
+    if data["type"] == "done"
+      done_or_eof = true
+      break
+    end
+    tests << data
+  rescue JSON::ParserError
+    $stderr.puts "[worker-#{wid}] skip: #{line.strip[0..60]}"
+  end
+
+  break if done_or_eof && tests.empty?
+  break if tests.empty? && ($stdin.eof? || $stdin.closed?)
+
+  files = tests.map { |t| t["file"] }.uniq
+  $stderr.puts "[worker-#{wid}] batch: #{files.size} files, #{tests.size} entries"
+
+  exit_code, results, total, passed = case options[:runner]
+  when "rspec"   then run_rspec(files, wid, rspec_args)
+  when "minitest" then run_minitest(files, wid, [])
+  else
+    $stderr.puts "[worker-#{wid}] unknown runner: #{options[:runner]}"
+    [1, [], 0, 0]
+  end
+
+  results.each do |r|
+    $stdout.puts JSON.generate({ type: "timing", file: r[:file], name: r[:name], time: r[:time] })
+  end
+  $stdout.puts JSON.generate({ type: "batch_result", exit_code: exit_code, passed: exit_code == 0, total: total, passed_count: passed })
+  $stdout.flush
 end
 
-files = tests.map { |t| t["file"] }.uniq
-$stderr.puts "[worker-#{wid}] #{files.size} files, #{tests.size} test entries"
-
-exit_code, results, total, passed = case options[:runner]
-when "rspec"   then run_rspec(files, wid, rspec_args)
-when "minitest" then run_minitest(files, wid, [])
-else
-  $stderr.puts "[worker-#{wid}] unknown runner: #{options[:runner]}"
-  [1, [], 0, 0]
-end
-
-results.each do |r|
-  $stdout.puts JSON.generate({ type: "timing", file: r[:file], name: r[:name], time: r[:time] })
-end
-$stdout.puts JSON.generate({ type: "result", exit_code: exit_code, passed: exit_code == 0, total: total, passed_count: passed })
-$stdout.flush
-exit exit_code
+exit exit_code || 0
