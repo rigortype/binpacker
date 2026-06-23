@@ -13,15 +13,23 @@ end
 
 def run_rspec(files, wid, rspec_args)
   outfile = Tempfile.new("binpacker-rspec-out")
+  progress_outfile = Tempfile.new("binpacker-rspec-progress")
   outfile.close
+  progress_outfile.close
+
   cmd = [
     "rspec",
     "--format", "json", "--out", outfile.path,
-    "--format", "progress", "--out", "/dev/stderr",
+    "--format", "progress", "--out", progress_outfile.path,
     *rspec_args,
     *files
   ]
-  success = system(*cmd)
+  system(*cmd, exception: false)
+  exit_status = $?.exitstatus || 1
+
+  if File.exist?(progress_outfile.path) && File.size(progress_outfile.path) > 0
+    $stderr.write File.read(progress_outfile.path, encoding: "UTF-8")
+  end
 
   data = (File.exist?(outfile.path) && File.size(outfile.path) > 0) ? JSON.parse(File.read(outfile.path, encoding: "UTF-8")) : {}
   examples = data["examples"] || []
@@ -31,8 +39,10 @@ def run_rspec(files, wid, rspec_args)
     { file: ex["file_path"], name: ex["full_description"] || ex["description"], time: ex["run_time"] || 0.0 }
   end
 
-  outfile.unlink
-  [$?.exitstatus || 1, results, examples.size, (summary["failure_count"] || 0) == 0 ? examples.size : examples.size - summary["failure_count"]]
+  [exit_status, results, examples.size, (summary["failure_count"] || 0) == 0 ? examples.size : examples.size - summary["failure_count"]]
+ensure
+  outfile&.unlink
+  progress_outfile&.unlink
 end
 
 def run_minitest(files, wid, _args)
