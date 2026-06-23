@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **[worker]** RSpec progress formatter output no longer depends on opening `/dev/stderr`, avoiding `Errno::EPERM` in restricted environments.
+- **[orchestrator]** Dynamic scheduling now persists timing records from batches completed through the active work-stealing loop.
 
 ## [0.1.0] - 2026-06-23
 
