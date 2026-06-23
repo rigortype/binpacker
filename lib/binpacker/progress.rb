@@ -99,14 +99,12 @@ module Binpacker
       @last_ci_output = now
 
       parts = @workers.map.with_index do |w, i|
-        if w[:total] > 0 && w[:done] >= w[:total]
-          "W#{i}: done"
-        else
-          "W#{i}: #{w[:done]}/#{w[:total]}"
-        end
+        ratio = w[:total] > 0 ? "#{w[:done]}/#{w[:total]}" : "0/?"
+        "W#{i}: #{ratio}"
       end
       elapsed = (now - @start).round(1)
       $stdout.puts "[binpacker #{elapsed}s] #{parts.join(' | ')}"
+      $stdout.flush
     end
 
     def format_time(seconds)
