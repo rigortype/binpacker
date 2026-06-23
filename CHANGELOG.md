@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Added
+## [0.2.0] - 2026-06-23
 
-- **[runner]** Add Minitest support.
+v0.2.0 broadens binpacker beyond RSpec and makes a parallel run far easier to watch. Minitest is now a first-class runner, and a live progress display with a per-worker timing summary reports balance as the run proceeds. Scheduling gains a MULTIFIT algorithm, batch-level work-stealing, and an opt-in example-level granularity that partitions individual examples rather than whole files. A new `binpacker init` command scaffolds configuration, and two correctness fixes keep timing data and progress output reliable in restricted environments.
+
+### Added
+
+- **[runner]** Minitest support with per-example timing, selectable via `test_runner: minitest`.
+- **[scheduling]** MULTIFIT partitioning algorithm using binary search, selectable via the scheduler `algorithm` setting.
+- **[scheduling]** Batch-level work-stealing where idle workers steal batches from the busiest worker's queue.
+- **[scheduling]** Example-level test granularity via `test_granularity: example`, scheduling individual examples discovered with `rspec --dry-run`.
+  - The default remains `file`. Workers still run whole files, and examples that land on more than one worker are de-duplicated by the timing data.
+- **[CLI]** `binpacker init` command that writes a `binpacker.yml` with auto-detected settings.
+- **[CLI]** `--quiet` flag to suppress worker output.
+- **[progress]** Live progress display with TTY animation and periodic CI-friendly output.
+- **[progress]** Per-worker timing summary printed after each run, reporting load-balance deviation.
+  - Shown in both dynamic and static scheduling modes.
 
 ### Fixed
 
@@ -67,7 +80,8 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/rigortype/binpacker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rigortype/binpacker/compare/v0.0.3...v0.1.0
 [0.0.3]: https://github.com/rigortype/binpacker/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/rigortype/binpacker/compare/v0.0.1...v0.0.2
