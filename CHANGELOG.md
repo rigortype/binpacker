@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **[runner]** Add Minitest support.
+
 ## [0.1.0] - 2026-06-23
 
 v0.1.0 fixes a critical correctness bug where worker processes ran serially instead of in parallel, and adds the README with setup instructions and a roadmap.

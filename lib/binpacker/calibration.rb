@@ -41,8 +41,7 @@ module Binpacker
           "--format", "json", "--out", outfile.path
         ]
       when "minitest"
-        method_name = test.name.to_s.split("#").last
-        cmd = ["ruby", "-Ilib:test", test.file, "--name", "/#{Regexp.escape(method_name)}$/"]
+        cmd = ["ruby", "-Ilib:test", test.file, "--name", "/^#{Regexp.escape(test.name)}$/"]
       else
         raise ConfigError, "unsupported runner for calibration: #{@config.test_runner}"
       end

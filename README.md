@@ -33,6 +33,20 @@ profiles:
     workers: 4
 ```
 
+For Minitest projects, set `test_runner: minitest` and use your test glob:
+
+```yaml
+profiles:
+  default:
+    test_runner: minitest
+    workers: auto
+    timing_file: binpacker.timings
+    test_pattern: "test/**/*_test.rb"
+    scheduler:
+      algorithm: lpt
+      steal_enabled: true
+```
+
 Run calibration once to seed timing data (required before the first parallel run):
 
 ```sh
@@ -45,13 +59,13 @@ Then run your suite in parallel:
 binpacker run
 # or pass arguments through to the test runner:
 binpacker run -- --tag ~slow
+binpacker run -- --name /UserTest#test_creates/
 ```
 
 `workers: auto` uses the number of available CPU cores. Set `BINPACKER_PROFILE=ci` or pass `--profile ci` to select a profile; CI environments (GitHub Actions, GitLab CI, Jenkins) are auto-detected and fall back to the `ci` profile when present.
 
 ## Roadmap
 
-- **Minitest support** — currently only RSpec is fully supported; Minitest support is planned.
 - **Dynamic scheduling** — idle workers pull tests from a shared queue at runtime instead of using a pre-computed static partition.
 - **`multifit` algorithm** — LPT-based initial partition with a binary-search optimisation pass for tighter makespan bounds.
 - **`binpacker calibrate --incremental`** — update only the tests whose timing data has grown stale rather than re-running the full suite serially.

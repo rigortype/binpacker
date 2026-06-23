@@ -25,6 +25,13 @@ module Binpacker
         @exclude.any? { |ex| File.fnmatch?(ex, f) }
       }
     end
+
+    def add_project_load_paths
+      %w[lib test].each do |path|
+        expanded = File.expand_path(path)
+        $LOAD_PATH.unshift(expanded) if Dir.exist?(expanded) && !$LOAD_PATH.include?(expanded)
+      end
+    end
   end
 
   class RSpecDiscovery < TestDiscovery
@@ -36,6 +43,7 @@ module Binpacker
   class MinitestDiscovery < TestDiscovery
     def enumerate
       require "minitest"
+      add_project_load_paths
       def Minitest.autorun; end
       Minitest.seed = 42
 

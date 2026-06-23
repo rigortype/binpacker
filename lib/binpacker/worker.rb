@@ -188,7 +188,9 @@ module Binpacker
 
     def passthrough_args
       return [] if @passthrough.empty?
-      @passthrough.flat_map { |arg| ["--rspec-arg", arg] }
+
+      worker_arg = @runner_class.runner_name == "minitest" ? "--minitest-arg" : "--rspec-arg"
+      @passthrough.flat_map { |arg| [worker_arg, arg] }
     end
 
     def kill!

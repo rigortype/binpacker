@@ -27,9 +27,9 @@ module Binpacker
       end
 
       if @config.scheduler["steal_enabled"]
-        run_dynamic(workers, queues, timing)
+        run_dynamic(workers, queues, timing, tests)
       else
-        run_static(workers, queues, timing)
+        run_static(workers, queues, timing, tests)
       end
     end
 
@@ -46,7 +46,7 @@ module Binpacker
       end
     end
 
-    def run_static(workers, queues, timing)
+    def run_static(workers, queues, timing, tests)
       workers.zip(queues).each do |worker, queue|
         worker.send_tests(queue.remaining)
       end
@@ -71,10 +71,10 @@ module Binpacker
         worker.cleanup
       end
 
-      finalize(timing, all_timings, all_passed, total_examples, passed_examples)
+      finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
     end
 
-    def run_dynamic(workers, queues, timing)
+    def run_dynamic(workers, queues, timing, tests)
       all_timings = []
       all_passed = true
       total_examples = 0
@@ -136,7 +136,7 @@ module Binpacker
       end
 
       workers.each(&:cleanup)
-      finalize(timing, all_timings, all_passed, total_examples, passed_examples)
+      finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
     end
 
     def drain_batch(queue)
@@ -150,14 +150,34 @@ module Binpacker
       batch
     end
 
-    def finalize(timing, all_timings, all_passed, total_examples, passed_examples)
+    def finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
       timing.append_all(all_timings) unless all_timings.empty?
+      empty_filter = minitest_empty_filter?(tests, total_examples)
+      all_passed = false if empty_filter
+
       {
         passed: all_passed,
         total: total_examples,
         passed_count: passed_examples,
-        timings: all_timings
+        timings: all_timings,
+        empty_filter: empty_filter
       }
+    end
+
+    def minitest_empty_filter?(tests, total_examples)
+      return false unless @config.test_runner == "minitest"
+      return false unless tests.any?
+      return false unless total_examples.zero?
+
+      minitest_include_filter?
+    end
+
+    def minitest_include_filter?
+      @passthrough.any? do |arg|
+        %w[--name --include -n -i].include?(arg) ||
+          arg.start_with?("--name=", "--include=") ||
+          (arg.start_with?("-n", "-i") && arg.length > 2)
+      end
     end
   end
 end
