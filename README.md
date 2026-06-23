@@ -3,7 +3,7 @@
 [![Gem Version](https://badge.fury.io/rb/binpacker.svg?icon=si%3Arubygems)](https://badge.fury.io/rb/binpacker)
 [![GitHub License](https://img.shields.io/github/license/rigortype/rigor)](https://github.com/rigortype/rigor/blob/master/LICENSE)
 
-A test runner wrapper that minimizes CI makespan by solving the [identical-machines scheduling problem]: distribute tests across N worker processes using LPT (Longest Processing Time first) scheduling with optional work-stealing.
+A test runner wrapper that minimizes CI makespan by solving the [identical-machines scheduling problem] (also known as the [bin packing problem]): distribute tests across N worker processes using LPT (Longest Processing Time first) scheduling with optional work-stealing.
 
 ## Setup
 
@@ -76,3 +76,4 @@ Mozilla Public License Version 2.0. See [`LICENSE`](LICENSE).
 
 [Rigor]: https://github.com/rigortype/rigor
 [identical-machines scheduling problem]: https://en.wikipedia.org/wiki/Identical-machines_scheduling
+[bin packing problem]: https://en.wikipedia.org/wiki/Bin_packing_problem
