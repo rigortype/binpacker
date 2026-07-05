@@ -69,7 +69,13 @@ module Binpacker
 
   class MinitestDiscovery < TestDiscovery
     def enumerate
-      require "minitest"
+      begin
+        require "minitest"
+      rescue LoadError
+        raise DiscoveryError,
+          "minitest is not available. binpacker supports rspec and minitest; " \
+          "test-unit and other frameworks are not supported."
+      end
       add_project_load_paths
       def Minitest.autorun; end
       Minitest.seed = 42

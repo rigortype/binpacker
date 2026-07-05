@@ -111,6 +111,11 @@ module Binpacker
       end
 
       framework = detect_framework
+      unless ProjectState::SUPPORTED_FRAMEWORKS.include?(framework)
+        $stderr.puts "Detected #{framework} — binpacker supports rspec and minitest only."
+        $stderr.puts "No binpacker.yml was created."
+        exit 1
+      end
       pattern = framework == "minitest" ? "test/**/*_test.rb" : "spec/**/*_spec.rb"
       runner = framework
 
@@ -188,6 +193,13 @@ module Binpacker
       puts "  test framework:         #{state.framework || 'not detected'}"
       puts "  CI wired for binpacker: #{state.ci_wired? ? 'yes' : 'no'}"
       puts ""
+
+      unless state.supported_framework?
+        puts "binpacker supports rspec and minitest; #{state.framework} is not supported yet."
+        puts "Setup cannot proceed against a #{state.framework} suite."
+        return
+      end
+
       rec = state.recommendation
       puts "Recommended next skill: #{rec}"
       puts "Run `binpacker skill #{rec}` to load its instructions."
@@ -282,9 +294,7 @@ module Binpacker
     end
 
     def detect_framework
-      return "minitest" if Dir.glob("test*/**/*_test.rb").any?
-      return "minitest" if Dir.glob("test*/**/test_*.rb").any?
-      "rspec"
+      ProjectState.new.framework || "rspec"
     end
   end
 end

@@ -25,12 +25,33 @@ RSpec.describe Binpacker::ProjectState do
       FileUtils.mkdir_p("spec")
       File.write("spec/a_spec.rb", "")
       expect(state.framework).to eq("rspec")
+      expect(state.supported_framework?).to be true
     end
 
     it "detects minitest from a test glob" do
       FileUtils.mkdir_p("test")
       File.write("test/a_test.rb", "")
       expect(state.framework).to eq("minitest")
+      expect(state.supported_framework?).to be true
+    end
+
+    it "detects test-unit from a Gemfile hint and marks it unsupported" do
+      FileUtils.mkdir_p("test")
+      File.write("test/a_test.rb", "")
+      File.write("Gemfile", "gem 'test-unit', '~> 3.5'\n")
+      expect(state.framework).to eq("test-unit")
+      expect(state.supported_framework?).to be false
+    end
+
+    it "detects test-unit from a require in a test file" do
+      FileUtils.mkdir_p("test")
+      File.write("test/a_test.rb", "require 'test/unit'\n")
+      expect(state.framework).to eq("test-unit")
+    end
+
+    it "treats an unknown project as supported (nil framework)" do
+      expect(state.framework).to be_nil
+      expect(state.supported_framework?).to be true
     end
   end
 

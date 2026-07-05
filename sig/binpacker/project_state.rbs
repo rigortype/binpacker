@@ -2,10 +2,13 @@ module Binpacker
   class ProjectState
     CONFIG_FILE: String
     DEFAULT_TIMING_FILE: String
+    SUPPORTED_FRAMEWORKS: Array[String]
+    TESTUNIT_HINT: Regexp
 
     def config_present?: () -> bool
     def timing_present?: () -> bool
     def framework: () -> String?
+    def supported_framework?: () -> bool
     def ci_wired?: () -> bool
     def recommendation: () -> String
     def to_h: () -> Hash[Symbol, untyped]
