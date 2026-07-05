@@ -69,11 +69,29 @@ RSpec.describe Binpacker::Report do
       expect(balance[:actual_deviation_pct]).to eq(25.0)
     end
 
-    it "ranks drift by absolute predicted-vs-actual gap, largest first" do
+    it "ranks per-file drift by absolute predicted-vs-actual gap, largest first" do
       drift = report.to_h[:drift]
 
       expect(drift.first).to include(file: "spec/a_spec.rb", predicted: 5.0, actual: 9.0)
       expect(drift.map { |d| d[:file] }).to eq(%w[spec/a_spec.rb spec/b_spec.rb spec/c_spec.rb])
+      expect(drift.first).not_to have_key(:name)
+    end
+
+    it "aggregates per-example actuals to file level before ranking drift" do
+      r = described_class.new(
+        profile: "ci", algorithm: "multifit", predicted_loads: [1.0],
+        worker_stats: [{ files: 1, total_time: 6.0, examples: 3, passed: 3 }],
+        all_timings: [
+          { file: "./spec/a_spec.rb", name: "ex1", time: 2.0 },
+          { file: "./spec/a_spec.rb", name: "ex2", time: 4.0 }
+        ],
+        timings: { %w[spec/a_spec.rb spec/a_spec.rb] => 1.0 }
+      )
+
+      drift = r.to_h[:drift]
+      expect(drift.size).to eq(1)
+      # "./spec/a_spec.rb" and "spec/a_spec.rb" normalize together; actual sums to 6.0
+      expect(drift.first).to include(file: "spec/a_spec.rb", predicted: 1.0, actual: 6.0)
     end
 
     it "caps drift at DRIFT_LIMIT entries" do

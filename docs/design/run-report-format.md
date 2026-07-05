@@ -19,7 +19,7 @@ The report is the data the `binpacker-improve` workflow reasons over. See [ADR-0
   ],
   "balance": { "predicted_deviation_pct": 0.3, "actual_deviation_pct": 6.4 },
   "drift": [
-    { "file": "spec/slow_spec.rb", "name": "…", "predicted": 5.0, "actual": 7.2 }
+    { "file": "spec/slow_spec.rb", "predicted": 5.0, "actual": 7.2 }
   ]
 }
 ```
@@ -37,13 +37,14 @@ The report is the data the `binpacker-improve` workflow reasons over. See [ADR-0
 | `workers[].actual` | float | Measured wall-clock duration for this Worker. |
 | `balance.predicted_deviation_pct` | float | Max predicted-load deviation from a perfect split, as a percentage. |
 | `balance.actual_deviation_pct` | float | Max actual deviation from a perfect split, as a percentage. |
-| `drift[]` | array | Top-N Tests by absolute predicted-vs-actual gap, largest first. |
+| `drift[]` | array | Top-N files by absolute predicted-vs-actual gap, largest first. Predicted and actual are both aggregated to file level so the comparison holds even when timings are recorded per example. |
 
 ## Conventions
 
 - **Encoding**: UTF-8. A single JSON object (not JSON Lines — one report per Run).
 - **Emission**: Only when `--report <path>` is set. The `ci` profile carries a default path so CI always emits one.
-- **`drift` cap**: Top-N by `|actual - predicted|` (N is a small constant, e.g. 10). Never the full Test set — see ADR-0004.
+- **`drift` cap**: Top-N files by `|actual - predicted|` (N is a small constant, e.g. 10). Never the full file set — see ADR-0004.
+- **`drift` granularity**: Per file. Both predicted (schedule-time weights) and actual (measured times) are summed to normalized file paths, so drift is meaningful whether timings are recorded per file or per example.
 - **Additive**: The report never replaces the human-readable stdout summary.
 
 ## Rationale

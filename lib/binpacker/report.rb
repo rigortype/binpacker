@@ -56,21 +56,35 @@ module Binpacker
       end
     end
 
+    # Drift is reported per file (the scheduling unit), so predicted and actual
+    # are compared at the same granularity even when timings are recorded
+    # per example. Both sides are aggregated to normalized file paths.
     def drift
-      @all_timings
-        .map { |e| drift_entry(e) }
+      actual = aggregate_by_file(@all_timings.map { |e| [e[:file], e[:time]] })
+      predicted = aggregate_by_file(@timings.map { |(file, _name), weight| [file, weight] })
+
+      (actual.keys | predicted.keys)
+        .map { |file| drift_entry(file, predicted[file], actual[file]) }
         .sort_by { |d| -(d[:actual] - d[:predicted]).abs }
         .first(DRIFT_LIMIT)
     end
 
-    def drift_entry(entry)
-      predicted = @timings.fetch([entry[:file], entry[:name]], Timing::DEFAULT_WEIGHT)
+    def drift_entry(file, predicted, actual)
       {
-        file: entry[:file],
-        name: entry[:name],
-        predicted: round(predicted),
-        actual: round(entry[:time])
+        file: file,
+        predicted: round(predicted || Timing::DEFAULT_WEIGHT),
+        actual: round(actual || 0.0)
       }
+    end
+
+    def aggregate_by_file(pairs)
+      pairs.each_with_object(Hash.new(0.0)) do |(file, time), acc|
+        acc[normalize_file(file)] += time
+      end
+    end
+
+    def normalize_file(file)
+      file.to_s.sub(%r{\A\./}, "")
     end
 
     def deviation_pct(loads)
