@@ -56,13 +56,25 @@ When no timing data exists for a Test, it receives a Weight of 1.0. This ensures
 The mechanism to enumerate which Tests exist. Supports two approaches: file-pattern-based (`spec/**/*_spec.rb`) and runner-based (`rspec --dry-run --format json`). Both may coexist.
 
 **Setup workflow**:
-An AI-agent-driven workflow (`/binpacker-setup`) that analyzes the project structure, runs Calibration, produces a local Timing file, validates a parallel run, creates a PR, and reads back CI results to tune settings.
+An agent-driven, one-time workflow (`binpacker-setup`) that brings a project from zero to a working parallel run: detect the framework, generate config, calibrate, validate, and wire CI.
+_Avoid_: Init, wizard, bootstrap script
+
+**Improve workflow**:
+An agent-driven, recurring workflow (`binpacker-improve`) that reads recent Run reports, analyzes the gap between predicted and actual durations, and proposes config adjustments. Propose-only — it never applies changes without confirmation.
 
 **CI cycle**:
 A CI run that uses cached Timing files for optimal scheduling. No AI agent involvement during the run itself.
 
-**Improve workflow**:
-An optional AI-agent-driven workflow (`/binpacker-improve`) that fetches recent CI timing data, analyzes gap between predicted and actual durations, and proposes config adjustments.
+**Run report**:
+A machine-readable record of one Run's predicted versus actual per-Worker durations, plus the worst per-Test Drift. Consumed by the Improve workflow.
+_Avoid_: Result file, output log
+
+**Drift**:
+The gap between a Test's predicted Weight and its actual measured duration in a Run. Large Drift signals stale timing data or an outlier Test.
+_Avoid_: Error, delta, variance
+
+**Baseline timings**:
+A Timing file committed to the repository to serve as a cold-start floor when the CI cache misses. Distinct from the cache, which is the runtime layer.
 
 **WorkerQueue**:
 A per-Worker ordered list of Tests assigned by the scheduler. Owned by the parent process; Workers pull from their queue via pipe.
