@@ -10,6 +10,8 @@ require_relative "binpacker/worker"
 require_relative "binpacker/test_runner"
 require_relative "binpacker/calibration"
 require_relative "binpacker/report"
+require_relative "binpacker/skills"
+require_relative "binpacker/project_state"
 require_relative "binpacker/orchestrator"
 require_relative "binpacker/progress"
 

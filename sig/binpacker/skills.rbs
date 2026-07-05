@@ -1,0 +1,10 @@
+module Binpacker
+  module Skills
+    ROOT: String
+
+    def self.list: () -> Array[Hash[Symbol, String]]
+    def self.exist?: (untyped) -> bool
+    def self.path: (untyped) -> String?
+    def self.body: (untyped) -> String
+  end
+end

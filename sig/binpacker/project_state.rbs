@@ -1,0 +1,13 @@
+module Binpacker
+  class ProjectState
+    CONFIG_FILE: String
+    DEFAULT_TIMING_FILE: String
+
+    def config_present?: () -> bool
+    def timing_present?: () -> bool
+    def framework: () -> String?
+    def ci_wired?: () -> bool
+    def recommendation: () -> String
+    def to_h: () -> Hash[Symbol, untyped]
+  end
+end
