@@ -94,7 +94,7 @@ module Binpacker
             timing_file: binpacker.timings
             test_pattern: "#{pattern}"
             scheduler:
-              algorithm: lpt
+              algorithm: multifit
               steal_enabled: true
           ci:
             extends: default

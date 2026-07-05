@@ -4,8 +4,8 @@
 
 | Algorithm | Description | Status |
 |-----------|-------------|--------|
-| `lpt` | Longest Processing Time first. Sort Tests descending by Weight, then repeatedly assign each Test to the Worker with the smallest current load. | Initial implementation |
-| `multifit` | LPT-based initial partition plus binary-search optimization pass. | Future |
+| `lpt` | Longest Processing Time first. Sort Tests descending by Weight, then repeatedly assign each Test to the Worker with the smallest current load. | Implemented |
+| `multifit` | LPT-based initial partition plus a binary-search optimization pass over candidate makespans. | Implemented (default) |
 
 ## Selection
 
@@ -15,7 +15,7 @@ profiles:
   default:
     scheduler:
       strategy: static
-      algorithm: lpt
+      algorithm: multifit
 ```
 
 ## Extensibility

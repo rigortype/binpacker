@@ -3,7 +3,7 @@
 [![Gem Version](https://badge.fury.io/rb/binpacker.svg?icon=si%3Arubygems)](https://badge.fury.io/rb/binpacker)
 [![GitHub License](https://img.shields.io/github/license/rigortype/rigor)](https://github.com/rigortype/rigor/blob/master/LICENSE)
 
-A test runner wrapper that reduces CI makespan by applying LPT (Longest Processing Time first) scheduling to the [identical-machines scheduling problem]: assign tests to N worker processes so that the maximum worker runtime is minimized. This is closely related to the [bin packing problem], with optional work-stealing.
+A test runner wrapper that reduces CI makespan by scheduling the [identical-machines scheduling problem]: assign tests to N worker processes so that the maximum worker runtime is minimized. This is closely related to the [bin packing problem]. It ships MultiFit (default) and LPT (Longest Processing Time first) algorithms, with optional work-stealing between workers at runtime.
 
 ## Setup
 
@@ -26,7 +26,7 @@ profiles:
     timing_file: binpacker.timings
     test_pattern: "spec/**/*_spec.rb"
     scheduler:
-      algorithm: lpt
+      algorithm: multifit
       steal_enabled: true
   ci:
     extends: default
@@ -43,7 +43,7 @@ profiles:
     timing_file: binpacker.timings
     test_pattern: "test/**/*_test.rb"
     scheduler:
-      algorithm: lpt
+      algorithm: multifit
       steal_enabled: true
 ```
 
@@ -51,6 +51,8 @@ Run calibration once to seed timing data (required before the first parallel run
 
 ```sh
 binpacker calibrate
+# after adding new specs, measure only the ones without timing data:
+binpacker calibrate --incremental
 ```
 
 Then run your suite in parallel:
@@ -66,9 +68,8 @@ binpacker run -- --name /UserTest#test_creates/
 
 ## Roadmap
 
-- **Dynamic scheduling** — idle workers pull tests from a shared queue at runtime instead of using a pre-computed static partition.
-- **`multifit` algorithm** — LPT-based initial partition with a binary-search optimisation pass for tighter makespan bounds.
-- **`binpacker calibrate --incremental`** — update only the tests whose timing data has grown stale rather than re-running the full suite serially.
+- **AI-powered setup & improve workflows** — agent-driven `/binpacker-setup` and `/binpacker-improve` that calibrate, validate a parallel run, and tune settings from CI results.
+- **Container/machine-level workers** — extend the Worker model beyond single-job processes to distribute Tests across containers or machines.
 
 ## License
 

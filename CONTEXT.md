@@ -27,7 +27,7 @@ A schedule computed before execution begins. No reassignment happens at runtime.
 _Avoid_: Ahead-of-time scheduling, precomputed schedule
 
 **Dynamic scheduling**:
-A schedule where idle Workers pull Tests from a shared queue at runtime. Planned for future versions.
+A schedule where idle Workers pull Tests from a shared queue at runtime. Implemented as work-stealing, enabled via `scheduler.steal_enabled`.
 
 **Test independence**:
 The assumption that Tests have no execution-order constraints. Any permutation is valid.
@@ -40,7 +40,7 @@ The mechanism by which binpacker creates Worker processes — via `fork(2)`-equi
 _Avoid_: Fork (unless the implementation details are the topic)
 
 **Calibration**:
-The process of running tests serially to measure real-world durations, producing an initial Weight file. Triggered explicitly (`binpacker calibrate`) or implicitly when no timing data exists.
+The process of running tests serially to measure real-world durations, producing an initial Weight file. Triggered explicitly (`binpacker calibrate`) or implicitly when no timing data exists. `binpacker calibrate --incremental` measures only Tests that have no existing Weight, leaving previously measured Weights untouched.
 _Avoid_: Init, setup, dry-run
 
 **Config file** (`binpacker.yml`):
@@ -88,7 +88,7 @@ CLI arguments after `--` that binpacker forwards verbatim to the test runner. Ex
 _Avoid_: Runner options, forwarded flags
 
 **Scheduling algorithm**:
-The heuristic that maps Tests to WorkerQueues. Implemented as a pluggable class behind the `Scheduler` interface. Built-in: `lpt`. Future: `multifit`.
+The heuristic that maps Tests to WorkerQueues. Implemented as a pluggable class behind the `Scheduler` interface. Built-in: `lpt` and `multifit` (default).
 
 **LPT (Longest Processing Time)**:
 A greedy heuristic: sort Tests by descending Weight, then assign each to the least-loaded Worker at the moment of assignment. Simple, empirically near-optimal for identical-machines makespan.
