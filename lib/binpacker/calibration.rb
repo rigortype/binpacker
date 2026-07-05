@@ -13,10 +13,13 @@ module Binpacker
       @timing = Timing.new(config.timing_file)
     end
 
-    def run(tests)
+    # Runs each Test serially and appends its measured Weight to the Timing file.
+    # With incremental: true, Tests that already have a measured Weight are skipped.
+    def run(tests, incremental: false)
+      targets = incremental ? unmeasured(tests) : tests
       results = []
 
-      tests.each do |test|
+      targets.each do |test|
         elapsed = run_single(test)
         results << { file: test.file, name: test.name, time: elapsed }
       end
@@ -26,6 +29,11 @@ module Binpacker
     end
 
     private
+
+    def unmeasured(tests)
+      measured = @timing.load_raw
+      tests.reject { |test| measured.key?([@timing.normalize_path(test.file), test.name]) }
+    end
 
     def run_single(test)
       outfile = Tempfile.new("binpacker-cal")

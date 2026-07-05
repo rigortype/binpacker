@@ -15,6 +15,7 @@ module Binpacker
       @profile = nil
       @passthrough = []
       @quiet = false
+      @incremental = false
       parse!
     end
 
@@ -57,6 +58,10 @@ module Binpacker
 
         opts.on("--quiet", "Suppress worker output") do
           @quiet = true
+        end
+
+        opts.on("--incremental", "Calibrate only tests without timing data") do
+          @incremental = true
         end
       end
 
@@ -110,12 +115,22 @@ module Binpacker
       discovery_klass = config.test_runner == "rspec" ? RSpecDiscovery : MinitestDiscovery
       tests = discovery_klass.new(config).enumerate
 
-      puts "Calibrating #{tests.size} tests..."
       cal = Calibration.new(config)
-      timings = cal.run(tests)
+
+      if @incremental
+        puts "Calibrating (incremental) #{tests.size} tests..."
+      else
+        puts "Calibrating #{tests.size} tests..."
+      end
+
+      timings = cal.run(tests, incremental: @incremental)
 
       total = timings.sum { |t| t[:time] }
-      puts "Calibration complete: #{tests.size} tests in #{total.round(2)}s"
+      measured = timings.size
+      skipped = tests.size - measured
+      summary = "Calibration complete: #{measured} #{pluralize(measured, 'test')} in #{total.round(2)}s"
+      summary += " (#{skipped} skipped, already measured)" if @incremental && skipped.positive?
+      puts summary
       puts "Timing data written to #{config.timing_file}"
     end
 
@@ -159,6 +174,7 @@ module Binpacker
 
         Options:
           --profile NAME   Select profile from binpacker.yml
+          --incremental    (calibrate) Measure only tests without timing data
           --help           Show this message
 
         Examples:
@@ -166,6 +182,7 @@ module Binpacker
           binpacker run --profile ci
           binpacker run -- --tag ~slow
           binpacker calibrate
+          binpacker calibrate --incremental
       HELP
     end
 

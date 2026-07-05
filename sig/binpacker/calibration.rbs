@@ -1,6 +1,6 @@
 module Binpacker
   class Calibration
     def initialize: (untyped) -> void
-    def run: (untyped) -> Array[untyped]
+    def run: (untyped, ?incremental: bool) -> Array[untyped]
   end
 end

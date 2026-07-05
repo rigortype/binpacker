@@ -4,6 +4,7 @@ module Binpacker
     def load_raw: () -> (Hash[[String, untyped], untyped] | {})
     def load_per_file: () -> (Hash[String, untyped] | {})
     def normalize_path: (untyped) -> String
+    def measured?: (file: untyped, name: untyped) -> bool
     class Entry
     end
   end

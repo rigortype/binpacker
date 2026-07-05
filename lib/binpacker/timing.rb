@@ -44,6 +44,11 @@ module Binpacker
       Pathname(path).cleanpath.to_s.sub(/\A\.\//, "")
     end
 
+    # True when a measured Weight already exists for this Test.
+    def measured?(file:, name:)
+      load_raw.key?([normalize_path(file), name])
+    end
+
     def weight_for(file:, name:)
       measured = load_raw
       measured.fetch([file, name]) { filesize_weight(file) }
