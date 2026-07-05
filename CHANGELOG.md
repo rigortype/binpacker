@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-05
+
+v0.3.0 turns binpacker into an agent-driven tool. A hosted install guide hands off to gem-shipped `binpacker-setup` and `binpacker-improve` skills, discovered through a new `binpacker skill`/`describe` CLI that inspects a project and recommends the next step. Runs can now emit a machine-readable report of predicted-versus-actual per-worker durations for tuning, and calibration can fill in only the tests that lack timing data. The release also fixes a handful of correctness issues found while validating the flow against real projects: `--version`, file-granularity calibration, and a clear message when a project uses an unsupported framework.
+
+### Added
+
+- **[setup]** Agent-driven install and setup: a hosted `docs/install.md` plus gem-shipped `binpacker-setup` (one-time bootstrap) and `binpacker-improve` (recurring, propose-only tuning) skills.
+- **[CLI]** `binpacker describe` (and `binpacker skill`) reports project state — config, timing data, framework, CI wiring — and recommends the next skill to run.
+- **[CLI]** `binpacker calibrate --incremental` measures only the tests that have no timing data yet, leaving existing weights untouched.
+- **[CLI]** `binpacker run --report PATH` (and the `report_file` config key, default on the `ci` profile) writes a JSON run report of predicted-versus-actual per-worker durations plus the worst per-file drift.
+
+### Changed
+
+- **[progress]** The per-worker summary labels the scheduled unit as `tests` rather than `files`, which is accurate at both file and example granularity.
+
+### Fixed
+
+- **[CLI]** `binpacker --version` now prints the version instead of the help text.
+- **[calibration]** File-granularity calibration runs the whole file instead of measuring only test-runner boot time.
+- **[discovery]** test-unit projects are detected and reported as unsupported, instead of failing later with an opaque `cannot load such file -- minitest` error.
+
 ## [0.2.0] - 2026-06-23
 
 v0.2.0 broadens binpacker beyond RSpec and makes a parallel run far easier to watch. Minitest is now a first-class runner, and a live progress display with a per-worker timing summary reports balance as the run proceeds. Scheduling gains a MULTIFIT algorithm, batch-level work-stealing, and an opt-in example-level granularity that partitions individual examples rather than whole files. A new `binpacker init` command scaffolds configuration, and two correctness fixes keep timing data and progress output reliable in restricted environments.
@@ -80,7 +101,8 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/rigortype/binpacker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rigortype/binpacker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rigortype/binpacker/compare/v0.0.3...v0.1.0
 [0.0.3]: https://github.com/rigortype/binpacker/compare/v0.0.2...v0.0.3
