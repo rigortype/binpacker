@@ -2,9 +2,12 @@ module Binpacker
   def key: () -> [untyped, String]
   class TestDiscovery
     def initialize: (untyped) -> void
-    def enumerate: () -> bot
+    def enumerate: () -> Array[Binpacker::Test]
   end
-  class MinitestDiscovery
+  class RSpecDiscovery < TestDiscovery
+    def enumerate: () -> Array[Binpacker::Test]
+  end
+  class MinitestDiscovery < TestDiscovery
     def enumerate: () -> Array[Binpacker::Test]
   end
   class Test

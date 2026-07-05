@@ -8,4 +8,8 @@ target_ruby: "3.3"
 paths:
   - lib
 
+pre_eval:
+  - lib/binpacker/timing.rb
+  - lib/binpacker/progress.rb
+
 baseline: .rigor-baseline.yml
