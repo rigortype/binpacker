@@ -7,14 +7,24 @@ A test runner wrapper that reduces CI makespan by scheduling the [identical-mach
 
 ## Setup
 
+### Agent-driven setup (recommended)
+
+binpacker ships an agent-driven install and setup flow. Paste this to your AI coding agent (Claude Code, Cursor, etc.) and it will install binpacker and walk the setup interactively:
+
+```
+Install binpacker in this project by following the instructions at
+https://raw.githubusercontent.com/rigortype/binpacker/master/docs/install.md
+```
+
+The agent installs the gem, runs `binpacker describe` to inspect the project, and follows the recommended skill (`binpacker-setup` or `binpacker-improve`). See [docs/design/agent-workflows.md](docs/design/agent-workflows.md).
+
+### Manual setup
+
 Install the gem:
 
 ```sh
 gem install binpacker
 ```
-
-> [!NOTE]
-> An AI-powered setup workflow (similar to [Rigor]'s `rigor-project-init`) is coming soon — stay tuned.
 
 Add a `binpacker.yml` at your project root:
 
@@ -68,7 +78,6 @@ binpacker run -- --name /UserTest#test_creates/
 
 ## Roadmap
 
-- **AI-powered setup & improve workflows** — agent-driven `/binpacker-setup` and `/binpacker-improve` that calibrate, validate a parallel run, and tune settings from CI results.
 - **Container/machine-level workers** — extend the Worker model beyond single-job processes to distribute Tests across containers or machines.
 
 ## License
