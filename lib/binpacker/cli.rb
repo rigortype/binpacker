@@ -97,7 +97,9 @@ module Binpacker
       end
 
       remaining = parser.parse(@args)
-      @command = remaining.shift
+      # A positional command wins; otherwise keep any command an option set
+      # (e.g. --version), so `binpacker --version` isn't clobbered to nil.
+      @command = remaining.shift || @command
       @skill_name = remaining.shift
     end
 
