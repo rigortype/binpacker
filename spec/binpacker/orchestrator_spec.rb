@@ -35,6 +35,42 @@ RSpec.describe Binpacker::Orchestrator do
     end
   end
 
+  describe "run report" do
+    it "writes a JSON report to report_path" do
+      FileUtils.mkdir_p("spec")
+      File.write("spec/a_spec.rb", <<~RUBY)
+        RSpec.describe "a" do
+          it "passes" do
+            expect(1 + 1).to eq(2)
+          end
+        end
+      RUBY
+
+      described_class.new(config, report_path: "report.json").run
+
+      expect(File.exist?("report.json")).to be true
+      report = JSON.parse(File.read("report.json"))
+      expect(report["schema"]).to eq(Binpacker::Report::SCHEMA)
+      expect(report["algorithm"]).to eq("lpt")
+      expect(report["workers"]).not_to be_empty
+    end
+
+    it "writes no report when report_path is nil" do
+      FileUtils.mkdir_p("spec")
+      File.write("spec/a_spec.rb", <<~RUBY)
+        RSpec.describe "a" do
+          it "passes" do
+            expect(1 + 1).to eq(2)
+          end
+        end
+      RUBY
+
+      described_class.new(config).run
+
+      expect(Dir.glob("*.json")).to be_empty
+    end
+  end
+
   def config
     double("config").tap do |config|
       allow(config).to receive(:test_runner).and_return("rspec")
@@ -42,6 +78,7 @@ RSpec.describe Binpacker::Orchestrator do
       allow(config).to receive(:test_exclude).and_return([])
       allow(config).to receive(:timing_file).and_return("binpacker.timings")
       allow(config).to receive(:worker_count).and_return(1)
+      allow(config).to receive(:profile).and_return("default")
       allow(config).to receive(:scheduler).and_return({ "algorithm" => "lpt", "steal_enabled" => true })
     end
   end

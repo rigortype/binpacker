@@ -14,6 +14,7 @@ module Binpacker
       "timing_file" => "binpacker.timings",
       "test_pattern" => "spec/**/*_spec.rb",
       "test_exclude" => [],
+      "report_file" => nil,
       "scheduler" => {
         "strategy" => "static",
         "steal_enabled" => false,

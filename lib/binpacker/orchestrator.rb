@@ -4,16 +4,18 @@ module Binpacker
   class Orchestrator
     BATCH_SIZE = 10
 
-    def initialize(config, passthrough: [], quiet: false)
+    def initialize(config, passthrough: [], quiet: false, report_path: nil)
       @config = config
       @passthrough = passthrough
       @quiet = quiet
+      @report_path = report_path
     end
 
     def run
       tests = discover
       timing = Timing.new(@config.timing_file)
       timings = timing.load_with_fallback(tests)
+      @timings = timings
 
       scheduler = Scheduler.for(@config.scheduler["algorithm"])
       queues = scheduler.partition(
@@ -21,6 +23,9 @@ module Binpacker
         worker_count: @config.worker_count,
         timings: timings
       )
+
+      # Capture predicted per-Worker loads before execution drains the queues.
+      @predicted_loads = queues.map { |q| q.total_weight(timings) }
 
       runner_class = TestRunner.for(@config.test_runner)
       workers = queues.map.with_index do |queue, idx|
@@ -96,6 +101,7 @@ module Binpacker
         }
       end
       progress.summary(worker_stats)
+      write_report(worker_stats, all_timings)
 
       finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
     end
@@ -199,9 +205,23 @@ module Binpacker
         }
       end
       progress.summary(worker_stats)
+      write_report(worker_stats, all_timings)
 
       workers.each(&:cleanup)
       finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
+    end
+
+    def write_report(worker_stats, all_timings)
+      return unless @report_path
+
+      Report.new(
+        profile: @config.profile,
+        algorithm: @config.scheduler["algorithm"],
+        predicted_loads: @predicted_loads,
+        worker_stats: worker_stats,
+        all_timings: all_timings,
+        timings: @timings
+      ).write(@report_path)
     end
 
     def drain_batch(queue)

@@ -2,5 +2,12 @@ module Binpacker
   class Config
     def initialize: (?profile: untyped, ?config_path: untyped) -> void
     def worker_count: () -> Integer
+    def test_runner: () -> String
+    def timing_file: () -> String
+    def test_pattern: () -> String
+    def test_exclude: () -> Array[String]
+    def test_granularity: () -> String
+    def report_file: () -> String?
+    def profile: () -> String
   end
 end

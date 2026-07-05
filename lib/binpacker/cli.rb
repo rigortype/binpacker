@@ -16,6 +16,7 @@ module Binpacker
       @passthrough = []
       @quiet = false
       @incremental = false
+      @report_path = nil
       parse!
     end
 
@@ -62,6 +63,10 @@ module Binpacker
 
         opts.on("--incremental", "Calibrate only tests without timing data") do
           @incremental = true
+        end
+
+        opts.on("--report PATH", "(run) Write a JSON run report to PATH") do |v|
+          @report_path = v
         end
       end
 
@@ -136,10 +141,14 @@ module Binpacker
 
     def cmd_run
       config = Config.new(profile: @profile)
-      orchestrator = Orchestrator.new(config, passthrough: @passthrough, quiet: @quiet)
+      report_path = @report_path || config.report_file
+      orchestrator = Orchestrator.new(
+        config, passthrough: @passthrough, quiet: @quiet, report_path: report_path
+      )
 
       puts "binpacker starting (#{config.worker_count} workers, profile: #{config.profile})"
       result = orchestrator.run
+      puts "Run report written to #{report_path}" if report_path
       unit = test_unit_label(config)
 
       if result[:passed]
@@ -175,6 +184,7 @@ module Binpacker
         Options:
           --profile NAME   Select profile from binpacker.yml
           --incremental    (calibrate) Measure only tests without timing data
+          --report PATH    (run) Write a JSON run report to PATH
           --help           Show this message
 
         Examples:

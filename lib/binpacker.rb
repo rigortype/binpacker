@@ -9,6 +9,7 @@ require_relative "binpacker/scheduler"
 require_relative "binpacker/worker"
 require_relative "binpacker/test_runner"
 require_relative "binpacker/calibration"
+require_relative "binpacker/report"
 require_relative "binpacker/orchestrator"
 require_relative "binpacker/progress"
 
