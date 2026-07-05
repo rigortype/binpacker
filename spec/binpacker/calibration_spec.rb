@@ -66,4 +66,53 @@ RSpec.describe Binpacker::Calibration do
       expect(results.map { |r| r[:file] }).to contain_exactly("spec/b_spec.rb")
     end
   end
+
+  describe "runner command construction" do
+    before { allow(calibration).to receive(:run_single).and_call_original }
+
+    def command_for(test)
+      captured = nil
+      allow(calibration).to receive(:system) { |*args, **_kw| captured = args; true }
+      calibration.send(:run_single, test)
+      captured
+    end
+
+    context "with rspec" do
+      it "runs the whole file (no --example) at file granularity" do
+        cmd = command_for(Binpacker::Test.new(file: "spec/a_spec.rb", name: "spec/a_spec.rb"))
+
+        expect(cmd).to include("rspec", "spec/a_spec.rb")
+        expect(cmd).not_to include("--example")
+      end
+
+      it "filters by example at example granularity" do
+        cmd = command_for(Binpacker::Test.new(file: "spec/a_spec.rb", name: "A works"))
+
+        expect(cmd).to include("--example", "A works")
+      end
+    end
+
+    context "with minitest" do
+      let(:config) do
+        double("config").tap do |c|
+          allow(c).to receive(:test_runner).and_return("minitest")
+          allow(c).to receive(:timing_file).and_return(timing_path)
+        end
+      end
+
+      it "runs the whole file (no --name) at file granularity" do
+        cmd = command_for(Binpacker::Test.new(file: "test/a_test.rb", name: "test/a_test.rb"))
+
+        expect(cmd).to include("ruby", "test/a_test.rb")
+        expect(cmd).not_to include("--name")
+      end
+
+      it "filters by method at method granularity" do
+        cmd = command_for(Binpacker::Test.new(file: "test/a_test.rb", name: "ATest#test_x"))
+
+        expect(cmd).to include("--name")
+        expect(cmd.last).to include("test_x")
+      end
+    end
+  end
 end

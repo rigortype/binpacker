@@ -41,15 +41,19 @@ module Binpacker
 
       start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
+      # At file granularity the Test's name is its file path (see Test
+      # discovery), so there is no single example/method to filter — run the
+      # whole file. A per-test filter would match nothing and measure only
+      # load time.
+      file_unit = test.name == test.file
+
       case @config.test_runner
       when "rspec"
-        cmd = [
-          "rspec", test.file,
-          "--example", test.name,
-          "--format", "json", "--out", outfile.path
-        ]
+        cmd = ["rspec", test.file, "--format", "json", "--out", outfile.path]
+        cmd.push("--example", test.name) unless file_unit
       when "minitest"
-        cmd = ["ruby", "-Ilib:test", test.file, "--name", "/^#{Regexp.escape(test.name)}$/"]
+        cmd = ["ruby", "-Ilib:test", test.file]
+        cmd.push("--name", "/^#{Regexp.escape(test.name)}$/") unless file_unit
       else
         raise ConfigError, "unsupported runner for calibration: #{@config.test_runner}"
       end
