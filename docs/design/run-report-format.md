@@ -15,7 +15,7 @@ The report is the data the `binpacker-improve` workflow reasons over. See [ADR-0
   "predicted_makespan": 333.0,
   "actual_makespan": 354.5,
   "workers": [
-    { "id": 0, "predicted": 333.1, "actual": 354.5, "files": 70, "examples": 1703 }
+    { "id": 0, "predicted": 333.1, "actual": 354.5, "tests": 70, "examples": 1703 }
   ],
   "balance": { "predicted_deviation_pct": 0.3, "actual_deviation_pct": 6.4 },
   "drift": [
@@ -35,6 +35,8 @@ The report is the data the `binpacker-improve` workflow reasons over. See [ADR-0
 | `workers[]` | array | Per-Worker predicted/actual durations and counts. |
 | `workers[].predicted` | float | Sum of scheduled Test Weights for this Worker at partition time. |
 | `workers[].actual` | float | Measured wall-clock duration for this Worker. |
+| `workers[].tests` | int | Number of scheduled Tests (the schedulable unit; files or examples depending on granularity). |
+| `workers[].examples` | int | Number of examples executed by this Worker. |
 | `balance.predicted_deviation_pct` | float | Max predicted-load deviation from a perfect split, as a percentage. |
 | `balance.actual_deviation_pct` | float | Max actual deviation from a perfect split, as a percentage. |
 | `drift[]` | array | Top-N files by absolute predicted-vs-actual gap, largest first. Predicted and actual are both aggregated to file level so the comparison holds even when timings are recorded per example. |

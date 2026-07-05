@@ -58,7 +58,7 @@ RSpec.describe Binpacker::Report do
       workers = report.to_h[:workers]
 
       expect(workers.map { |w| w[:id] }).to eq([0, 1])
-      expect(workers[0]).to include(predicted: 8.0, actual: 10.0, files: 2, examples: 20)
+      expect(workers[0]).to include(predicted: 8.0, actual: 10.0, tests: 2, examples: 20)
     end
 
     it "computes predicted and actual balance deviation" do

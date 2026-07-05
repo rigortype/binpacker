@@ -50,7 +50,7 @@ module Binpacker
           id: i,
           predicted: round(@predicted_loads[i] || 0.0),
           actual: round(s[:total_time]),
-          files: s[:files],
+          tests: s[:files],
           examples: s[:examples]
         }
       end
