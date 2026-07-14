@@ -166,6 +166,16 @@ end.parse!
 
 wid = options[:id]
 exit_code = 0
+
+# Test code must never see the orchestrator's control pipe. A test
+# that reads stdin — an LSP server loop, anything calling gets —
+# would block forever on the pipe the orchestrator keeps open
+# between dynamic batches (or, worse, consume control messages).
+# Keep the pipe on a private handle and point process stdin, which
+# spawned test runners inherit, at /dev/null so readers see EOF.
+control = $stdin.dup
+$stdin.reopen(File::NULL)
+
 $stderr.puts "[worker-#{wid}] #{options[:runner]} worker started"
 
 loop do
@@ -174,7 +184,7 @@ loop do
 
   tests = []
   done_or_eof = false
-  $stdin.each_line do |line|
+  control.each_line do |line|
     data = JSON.parse(line.strip)
     if data["type"] == "done"
       done_or_eof = true
@@ -186,7 +196,7 @@ loop do
   end
 
   break if done_or_eof && tests.empty?
-  break if tests.empty? && ($stdin.eof? || $stdin.closed?)
+  break if tests.empty? && (control.eof? || control.closed?)
 
   files = tests.map { |t| t["file"] }.uniq
   $stderr.puts "[worker-#{wid}] batch: #{files.size} files, #{tests.size} entries"
