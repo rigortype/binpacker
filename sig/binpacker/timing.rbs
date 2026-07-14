@@ -1,6 +1,10 @@
 module Binpacker
   class Timing
     def initialize: (untyped) -> void
+    DEFAULT_WEIGHT: Float
+    MAX_SAMPLES_PER_TEST: Integer
+    def calibrated?: () -> bool
+    def load_with_fallback: (untyped) -> Hash[untyped, Float]
     def load_raw: () -> (Hash[[String, untyped], untyped] | {})
     def load_per_file: () -> (Hash[String, untyped] | {})
     def normalize_path: (untyped) -> String

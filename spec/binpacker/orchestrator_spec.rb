@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require 'fileutils'
+require 'timeout'
 require 'tmpdir'
 
 RSpec.describe Binpacker::Orchestrator do
@@ -71,6 +72,27 @@ RSpec.describe Binpacker::Orchestrator do
     end
   end
 
+  describe 'control-pipe isolation' do
+    it "does not hand the orchestrator's control pipe to test code that reads stdin" do
+      FileUtils.mkdir_p('spec')
+      # Under dynamic scheduling the orchestrator keeps the worker's
+      # stdin pipe open between batches. A test reading $stdin used to
+      # inherit that pipe and block forever; it must see EOF instead.
+      File.write('spec/stdin_reader_spec.rb', <<~RUBY)
+        RSpec.describe "stdin reader" do
+          it "sees EOF immediately" do
+            expect($stdin.read).to eq("")
+          end
+        end
+      RUBY
+
+      result = Timeout.timeout(60) { described_class.new(config).run }
+
+      expect(result[:passed]).to be true
+      expect(result[:total]).to eq(1)
+    end
+  end
+
   describe '#drain_batch' do
     let(:orchestrator) { described_class.new(config) }
 
@@ -86,10 +108,14 @@ RSpec.describe Binpacker::Orchestrator do
       queue
     end
 
+    def drain(queue, floor = described_class::MIN_BATCH_WEIGHT)
+      orchestrator.send(:drain_batch, queue, floor)
+    end
+
     it 'halves the remaining predicted weight per batch' do
       queue = queue_with(Array.new(10, 20.0)) # 200s total
 
-      batch = orchestrator.send(:drain_batch, queue)
+      batch = drain(queue)
 
       # target = 200/2 = 100s -> 5 files of 20s
       expect(batch.size).to eq(5)
@@ -98,7 +124,7 @@ RSpec.describe Binpacker::Orchestrator do
     it 'keeps draining small tails in MIN_BATCH_WEIGHT chunks' do
       queue = queue_with(Array.new(8, 5.0)) # 40s total
 
-      batch = orchestrator.send(:drain_batch, queue)
+      batch = drain(queue)
 
       # target = max(40/2, 30) = 30s -> 6 files of 5s
       expect(batch.size).to eq(6)
@@ -107,13 +133,62 @@ RSpec.describe Binpacker::Orchestrator do
     it 'always drains at least one test regardless of weight' do
       queue = queue_with([500.0])
 
-      expect(orchestrator.send(:drain_batch, queue).size).to eq(1)
+      expect(drain(queue).size).to eq(1)
     end
 
     it 'returns an empty batch for an empty queue' do
       queue = queue_with([])
 
-      expect(orchestrator.send(:drain_batch, queue)).to be_empty
+      expect(drain(queue)).to be_empty
+    end
+
+    it 'honors a scale-free cold-start floor instead of MIN_BATCH_WEIGHT' do
+      # cold-start floor of 10 (not 30): target = max(40/2, 10) = 20 -> 4 files
+      queue = queue_with(Array.new(8, 5.0))
+
+      expect(drain(queue, 10.0).size).to eq(4)
+    end
+  end
+
+  describe '#min_batch_weight' do
+    def orchestrator_with(worker_count)
+      cfg = config
+      allow(cfg).to receive(:worker_count).and_return(worker_count)
+      described_class.new(cfg)
+    end
+
+    it 'uses the fixed MIN_BATCH_WEIGHT when the project is calibrated' do
+      orchestrator = orchestrator_with(4)
+      timing = instance_double(Binpacker::Timing, calibrated?: true)
+
+      weight = orchestrator.send(:min_batch_weight, timing, { 'a' => 200.0 })
+      expect(weight).to eq(described_class::MIN_BATCH_WEIGHT)
+    end
+
+    it 'targets COLD_START_BATCHES_PER_WORKER batches per worker on a cold start' do
+      orchestrator = orchestrator_with(4)
+      timing = instance_double(Binpacker::Timing, calibrated?: false)
+      timings = { 'a' => 120.0, 'b' => 80.0 } # total 200
+
+      # 200 / (4 workers * 5 batches) = 10.0
+      weight = orchestrator.send(:min_batch_weight, timing, timings)
+      expect(weight).to be_within(0.001).of(10.0)
+    end
+
+    it 'falls back to MIN_BATCH_WEIGHT when total predicted weight is zero' do
+      orchestrator = orchestrator_with(4)
+      timing = instance_double(Binpacker::Timing, calibrated?: false)
+
+      weight = orchestrator.send(:min_batch_weight, timing, { 'a' => 0.0 })
+      expect(weight).to eq(described_class::MIN_BATCH_WEIGHT)
+    end
+
+    it 'falls back to MIN_BATCH_WEIGHT when there are no workers' do
+      orchestrator = orchestrator_with(0)
+      timing = instance_double(Binpacker::Timing, calibrated?: false)
+
+      weight = orchestrator.send(:min_batch_weight, timing, { 'a' => 200.0 })
+      expect(weight).to eq(described_class::MIN_BATCH_WEIGHT)
     end
   end
 
