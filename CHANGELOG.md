@@ -7,23 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-15
+
+v0.4.0 is a scheduling-quality release: it makes binpacker's predicted weights trustworthy, and then spends them better. Weights are now the median of a test's recent runs rather than the sum of its entire history, and every weight — measured or estimated from file size — is expressed in seconds, so they can be compared and added up meaningfully. Work-stealing uses those weights to size each batch and to pick which worker to steal from, which cut maximum worker deviation from 8.6% to about 2% on a real four-worker suite. The release also fixes two bugs that could bite anyone running with stealing enabled: a test that reads stdin would deadlock the entire run, and the final example count was inflated on every extra batch.
+
 ### Changed
 
-- **[scheduler]** Work-stealing batches are weight-guided instead of a fixed 10 files: each batch drains half the queue's remaining predicted weight (floored at ~30s of predicted work), so early batches amortize the per-batch test-runner boot while tail batches stay fine-grained for balance. Stealing now picks the donor with the most remaining predicted time rather than the most files.
-- **[timing]** The timing file is compacted after each run to the last 3 samples per test, keeping it — and any CI cache built from it — bounded instead of growing by one run per invocation.
-- **[timing]** Unmeasured files' fallback weights are scaled from KB into seconds via a coefficient estimated from measured files, so mixed measured/unmeasured suites compare weights in one unit.
+- **[work-stealing]** Batches are now sized by predicted weight instead of a fixed ten files.
+  - Each batch drains half of its queue's remaining predicted weight, floored at about 30 seconds of work. Early batches are large, so the per-batch test-runner boot is amortized; tail batches stay small, where balance is actually decided. Stealing also picks the donor with the most remaining predicted time rather than the most files.
+- **[timing]** Weights for tests that have never been measured are now expressed in seconds rather than kilobytes.
+  - The fallback is still derived from file size, but it is scaled through a seconds-per-kilobyte coefficient estimated from the tests that do have measurements. A suite mixing measured and brand-new tests now compares all of its weights in one unit.
+- **[timing]** The timing file is compacted after each run to the three most recent samples per test.
+  - The file — and any CI cache built from it — stays bounded instead of growing by one full run per invocation.
 
 ### Removed
 
-- **[timing]** `Timing#weight_for`, which had no callers and returned raw KB for unmeasured tests while every other weight is now expressed in seconds. Use `load_with_fallback` for unit-consistent weights or `load_raw` for measured samples.
+- **[timing]** `Timing#weight_for` is gone; use `load_with_fallback` for scheduling weights or `load_raw` for measured samples.
+  - It had no callers, and it was the last API returning a raw-kilobyte weight now that every other weight is in seconds.
 
 ### Fixed
 
-- **[scheduler]** Per-file weights are now the median of each test's recent samples. Previously the entire append-only history was summed, so a file present in N historical runs weighed ~N× its true cost — long-lived files dominated the partition and newly added ones were starved, producing avoidable worker imbalance (observed at up to ~7% max deviation on a real 4-worker CI suite even with perfect predictions).
-- **[progress]** The per-worker summary printed the same worker id twice when two workers finished with identical stats.
-- **[worker]** Test processes no longer inherit the orchestrator's control pipe as stdin. A test that reads stdin (e.g. a CLI spec driving an LSP server's read loop) blocked forever under dynamic scheduling, deadlocking the whole run; worker stdin now points at /dev/null so such reads see EOF, matching what static mode's closed pipe already provided.
-- **[scheduler]** Dynamic runs over-counted examples: each batch re-added the worker's cumulative example count, so the final “All N examples passed” total inflated with every extra batch. Grand totals are now summed once from per-worker finals.
-- **[scheduler]** The cold-start batch floor no longer misreads 30 seconds as 30 KB. On small codebases the old floor could exceed a worker's whole queue and silently disable dynamic batching and stealing.
+- **[scheduling]** A test file's weight is now the median of its recent samples instead of the sum of its entire recorded history.
+  - Summing meant a file present in N historical runs weighed roughly N times its true cost, so long-lived files dominated the partition while newly added ones were starved. On a real four-worker suite with an 80-run timing cache this alone caused about 7% worker imbalance, even when every individual prediction was accurate.
+- **[work-stealing]** Runs with no timing data no longer disable batching and stealing on small suites.
+  - The batch floor is a duration, but an uncalibrated run weighs files in kilobytes, so a 30-second floor was read as 30 kilobytes. On a small codebase that exceeded a worker's entire queue, silently collapsing dynamic scheduling into a static one. Uncalibrated runs now derive a size-independent floor instead.
+- **[worker]** A test that reads stdin no longer hangs the run when stealing is enabled.
+  - Worker stdin is the orchestrator's control pipe, and spawned test processes inherited it. Static scheduling hid this because the pipe closes after the only batch; with stealing the pipe stays open between batches, so the test blocked on it forever and deadlocked the run. Worker stdin now points at `/dev/null`, so such tests see EOF.
+- **[progress]** The final example count is no longer inflated when workers run more than one batch.
+  - Each batch re-added the worker's cumulative example count to the grand total. Totals are now summed once from the per-worker finals.
+- **[progress]** The per-worker summary no longer prints the same worker id twice when two workers finish with identical stats.
 
 ## [0.3.0] - 2026-07-05
 
@@ -119,7 +131,8 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/rigortype/binpacker/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rigortype/binpacker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rigortype/binpacker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rigortype/binpacker/compare/v0.0.3...v0.1.0
