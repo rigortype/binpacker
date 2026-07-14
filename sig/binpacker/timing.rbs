@@ -5,6 +5,8 @@ module Binpacker
     def load_per_file: () -> (Hash[String, untyped] | {})
     def normalize_path: (untyped) -> String
     def measured?: (file: untyped, name: untyped) -> bool
+    def compact!: () -> nil
+    def append_all: (untyped) -> nil
     class Entry
     end
   end
