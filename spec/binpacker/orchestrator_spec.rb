@@ -93,6 +93,31 @@ RSpec.describe Binpacker::Orchestrator do
     end
   end
 
+  describe 'dynamic batch accounting' do
+    it 'counts each example once across multiple batches' do
+      FileUtils.mkdir_p('spec')
+      %w[a b].each do |n|
+        File.write("spec/#{n}_spec.rb", <<~RUBY)
+          RSpec.describe "#{n}" do
+            it "passes" do
+              expect(1).to eq(1)
+            end
+          end
+        RUBY
+      end
+      # Two heavy measured weights force two one-file batches: the
+      # worker's cumulative example count must not be re-added per batch.
+      timing = Binpacker::Timing.new('binpacker.timings')
+      timing.append(file: 'spec/a_spec.rb', name: nil, time: 100.0)
+      timing.append(file: 'spec/b_spec.rb', name: nil, time: 100.0)
+
+      result = described_class.new(config).run
+
+      expect(result[:total]).to eq(2)
+      expect(result[:passed_count]).to eq(2)
+    end
+  end
+
   describe '#drain_batch' do
     let(:orchestrator) { described_class.new(config) }
 

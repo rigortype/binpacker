@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[scheduler]** Per-file weights are now the median of each test's recent samples. Previously the entire append-only history was summed, so a file present in N historical runs weighed ~N× its true cost — long-lived files dominated the partition and newly added ones were starved, producing avoidable worker imbalance (observed at up to ~7% max deviation on a real 4-worker CI suite even with perfect predictions).
 - **[progress]** The per-worker summary printed the same worker id twice when two workers finished with identical stats.
 - **[worker]** Test processes no longer inherit the orchestrator's control pipe as stdin. A test that reads stdin (e.g. a CLI spec driving an LSP server's read loop) blocked forever under dynamic scheduling, deadlocking the whole run; worker stdin now points at /dev/null so such reads see EOF, matching what static mode's closed pipe already provided.
+- **[scheduler]** Dynamic runs over-counted examples: each batch re-added the worker's cumulative example count, so the final “All N examples passed” total inflated with every extra batch. Grand totals are now summed once from per-worker finals.
 - **[scheduler]** The cold-start batch floor no longer misreads 30 seconds as 30 KB. On small codebases the old floor could exceed a worker's whole queue and silently disable dynamic batching and stealing.
 
 ## [0.3.0] - 2026-07-05
