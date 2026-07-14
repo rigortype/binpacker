@@ -17,11 +17,19 @@ module Binpacker
       @path = Pathname(path)
     end
 
+    # True once any timing samples exist, i.e. the project has been
+    # calibrated at least once. Callers use this to tell a measured
+    # run (weights in seconds) from a pure cold start (fallbacks only).
+    def calibrated?
+      !samples_by_test.empty?
+    end
+
     def load_with_fallback(tests)
       per_file = load_per_file
+      coefficient = seconds_per_kb(per_file)
       tests.each_with_object({}) do |test, hash|
         key = normalize_path(test.file)
-        hash[test.key] = per_file.fetch(key) { filesize_weight(test.file) }
+        hash[test.key] = per_file.fetch(key) { fallback_weight(test.file, coefficient) }
       end
     end
 
@@ -68,10 +76,6 @@ module Binpacker
     # True when a measured Weight already exists for this Test.
     def measured?(file:, name:)
       load_raw.key?([normalize_path(file), name])
-    end
-
-    def weight_for(file:, name:)
-      load_raw.fetch([normalize_path(file), name]) { filesize_weight(file) }
     end
 
     def append(file:, name:, time:)
@@ -121,6 +125,51 @@ module Binpacker
     def filesize_weight(file)
       path = Pathname(file)
       path.exist? ? [path.size / 1024.0, DEFAULT_WEIGHT].max : DEFAULT_WEIGHT
+    end
+
+    # Seconds-per-KB coefficient used to scale filesize fallbacks onto
+    # the same axis as measured Weights. Measured Weights are seconds;
+    # the raw filesize fallback is KB, so mixing them (batch floors,
+    # donor selection) compares apples to oranges — 30s of predicted
+    # work reads as "30 KB of files". We estimate a conversion from
+    # the files we DO have timings for: for each measured file that
+    # still exists on disk with size > 0, take measured_seconds /
+    # size_kb, and use the median of those ratios (robust to a few
+    # outlier files that are unusually fast or slow for their size).
+    # nil when nothing can be estimated (no measurements, or none of
+    # the measured files exist on disk) — callers then keep raw KB.
+    def seconds_per_kb(per_file)
+      ratios = per_file.filter_map do |file, seconds|
+        kb = size_kb(file)
+        next if kb.nil? || kb <= 0
+
+        seconds / kb
+      end
+      ratios.empty? ? nil : median(ratios)
+    end
+
+    # Predicted Weight for an unmeasured Test. Without a coefficient we
+    # keep the legacy raw-KB behavior (floored at 1.0). With one we
+    # scale filesize into seconds: an existing file becomes
+    # size_kb * coefficient (floored at 0.01 to avoid degenerate zero
+    # weights, but NOT at 1.0 — sub-second predictions are meaningful
+    # now that the unit is seconds); a missing/unreadable file falls
+    # back to DEFAULT_WEIGHT as a plausible seconds-scale default.
+    def fallback_weight(file, coefficient)
+      return filesize_weight(file) if coefficient.nil?
+
+      kb = size_kb(file)
+      return DEFAULT_WEIGHT if kb.nil?
+
+      [kb * coefficient, 0.01].max
+    end
+
+    # File size in KB, or nil when the file does not exist / is unreadable.
+    def size_kb(file)
+      path = Pathname(file)
+      path.exist? ? path.size / 1024.0 : nil
+    rescue SystemCallError
+      nil
     end
 
     def parse_line(line)

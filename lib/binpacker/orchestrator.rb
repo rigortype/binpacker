@@ -3,11 +3,25 @@
 module Binpacker
   class Orchestrator
     # Dynamic batches halve the queue's remaining predicted weight,
-    # floored at MIN_BATCH_WEIGHT: early batches are large to amortize
+    # floored at a per-run minimum: early batches are large to amortize
     # the per-batch test-runner boot (each batch is a fresh rspec
     # process), tail batches stay small so workers finish together.
-    # Weights are measured seconds, or filesize KB on a cold start.
+    #
+    # The floor comes in two regimes (@min_batch_weight, set in #run):
+    #   - Calibrated: weights are measured seconds, so the floor is a
+    #     fixed MIN_BATCH_WEIGHT (~30s), an order of magnitude above the
+    #     ~3s runner boot — boot overhead stays in the noise.
+    #   - Cold start: weights are filesize KB, not seconds, so a fixed
+    #     30 is meaningless. We instead derive a floor that targets
+    #     ~COLD_START_BATCHES_PER_WORKER batches per worker (below).
     MIN_BATCH_WEIGHT = 30.0
+
+    # On a pure cold start predicted weights are filesize KB, not
+    # seconds, so the 30s MIN_BATCH_WEIGHT floor has no meaning. Instead
+    # we size the floor so the total predicted weight divides into about
+    # this many batches per worker — matching the ~5 runner boots per
+    # worker that gave the best makespan in the PR #12 simulation.
+    COLD_START_BATCHES_PER_WORKER = 5
 
     def initialize(config, passthrough: [], quiet: false, report_path: nil)
       @config = config
@@ -21,6 +35,7 @@ module Binpacker
       timing = Timing.new(@config.timing_file)
       timings = timing.load_with_fallback(tests)
       @timings = timings
+      @min_batch_weight = min_batch_weight(timing, timings)
 
       scheduler = Scheduler.for(@config.scheduler['algorithm'])
       queues = scheduler.partition(
@@ -233,10 +248,26 @@ module Binpacker
       ).write(@report_path)
     end
 
+    # Per-run batch-weight floor. Calibrated runs use the fixed
+    # seconds-scale MIN_BATCH_WEIGHT. On a cold start weights are KB, so
+    # that floor is meaningless; derive one that splits the total
+    # predicted weight into ~COLD_START_BATCHES_PER_WORKER batches per
+    # worker, falling back to MIN_BATCH_WEIGHT when there is nothing to
+    # divide (zero total weight or zero workers).
+    def min_batch_weight(timing, timings)
+      return MIN_BATCH_WEIGHT if timing.calibrated?
+
+      total = timings.values.sum
+      workers = @config.worker_count
+      return MIN_BATCH_WEIGHT if total.zero? || workers.zero?
+
+      total / (workers * COLD_START_BATCHES_PER_WORKER)
+    end
+
     def drain_batch(queue)
       return [] if queue.nil? || queue.empty?
 
-      target = [queue.total_weight(@timings) / 2.0, MIN_BATCH_WEIGHT].max
+      target = [queue.total_weight(@timings) / 2.0, @min_batch_weight].max
       batch = []
       weight = 0.0
       while (batch.empty? || weight < target) && (test = queue.pop)

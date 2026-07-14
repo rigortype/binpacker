@@ -148,6 +148,73 @@ RSpec.describe Binpacker::Timing do
     end
   end
 
+  describe '#calibrated?' do
+    it 'is false when no timing file exists' do
+      expect(timing.calibrated?).to be false
+    end
+
+    it 'is true once any sample has been recorded' do
+      timing.append(file: 'spec/a_spec.rb', name: 'a 1', time: 1.0)
+
+      expect(timing.calibrated?).to be true
+    end
+  end
+
+  describe '#load_with_fallback unit scaling' do
+    def write_file(name, bytes)
+      path = File.join(@dir, name)
+      File.write(path, 'x' * bytes)
+      path
+    end
+
+    it 'scales an unmeasured file by the median seconds-per-KB of measured files' do
+      # measured A: 2KB taking 6s -> 3.0 s/KB; measured B: 1KB taking 1s -> 1.0 s/KB
+      a = write_file('a_spec.rb', 2048)
+      b = write_file('b_spec.rb', 1024)
+      timing.append(file: a, name: 'a 1', time: 6.0)
+      timing.append(file: b, name: 'b 1', time: 1.0)
+
+      # unmeasured C: 2KB -> median(3.0, 1.0) = 2.0 s/KB -> 2 * 2.0 = 4.0s
+      c = write_file('c_spec.rb', 2048)
+      test = Binpacker::Test.new(file: c, name: c)
+
+      weights = timing.load_with_fallback([test])
+      expect(weights[test.key]).to be_within(0.001).of(4.0)
+    end
+
+    it 'keeps raw-KB fallback on a pure cold start (no samples)' do
+      c = write_file('c_spec.rb', 3072) # 3KB
+      test = Binpacker::Test.new(file: c, name: c)
+
+      weights = timing.load_with_fallback([test])
+      expect(weights[test.key]).to be_within(0.001).of(3.0)
+    end
+
+    it 'gives DEFAULT_WEIGHT to a nonexistent file when a coefficient exists' do
+      a = write_file('a_spec.rb', 2048)
+      timing.append(file: a, name: 'a 1', time: 6.0)
+
+      missing = File.join(@dir, 'does_not_exist_spec.rb')
+      test = Binpacker::Test.new(file: missing, name: missing)
+
+      weights = timing.load_with_fallback([test])
+      expect(weights[test.key]).to be_within(0.001).of(described_class::DEFAULT_WEIGHT)
+    end
+
+    it 'floors a scaled weight at 0.01 to avoid degenerate zero weights' do
+      # coefficient 2.0 s/KB from a 1KB/2s measurement
+      a = write_file('a_spec.rb', 1024)
+      timing.append(file: a, name: 'a 1', time: 2.0)
+
+      # tiny 1-byte file: (1/1024) * 2.0 ~= 0.00195 -> floored to 0.01
+      tiny = write_file('tiny_spec.rb', 1)
+      test = Binpacker::Test.new(file: tiny, name: tiny)
+
+      weights = timing.load_with_fallback([test])
+      expect(weights[test.key]).to be_within(1e-6).of(0.01)
+    end
+  end
+
   describe 'cache invalidation' do
     it 'sees entries appended after an earlier read' do
       timing.append(file: 'spec/a_spec.rb', name: 'a 1', time: 1.0)

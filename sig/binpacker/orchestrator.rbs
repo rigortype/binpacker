@@ -1,5 +1,7 @@
 module Binpacker
   class Orchestrator
+    MIN_BATCH_WEIGHT: Float
+    COLD_START_BATCHES_PER_WORKER: Integer
     def initialize: (untyped, ?passthrough: untyped, ?quiet: untyped, ?report_path: untyped) -> void
     def run: () -> { passed: untyped, total: untyped, passed_count: untyped, timings: Array[untyped], empty_filter: untyped }
   end

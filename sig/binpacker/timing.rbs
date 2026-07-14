@@ -1,6 +1,7 @@
 module Binpacker
   class Timing
     def initialize: (untyped) -> void
+    def calibrated?: () -> bool
     def load_raw: () -> (Hash[[String, untyped], untyped] | {})
     def load_per_file: () -> (Hash[String, untyped] | {})
     def normalize_path: (untyped) -> String
