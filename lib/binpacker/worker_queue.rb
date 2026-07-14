@@ -37,7 +37,7 @@ module Binpacker
     end
 
     def total_weight(timings)
-      remaining.sum { |t| timings.fetch(t.key, Timing::DEFAULT_WEIGHT) }
+      remaining.sum(0.0) { |t| timings.fetch(t.key, Timing::DEFAULT_WEIGHT) }
     end
 
     def push(test)

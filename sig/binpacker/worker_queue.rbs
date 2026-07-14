@@ -2,5 +2,7 @@ module Binpacker
   class WorkerQueue
     def initialize: (untyped, ?untyped) -> void
     def empty?: () -> (false | true)
+    def pop: () -> untyped
+    def total_weight: (Hash[untyped, Float]) -> Float
   end
 end

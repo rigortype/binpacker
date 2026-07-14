@@ -7,7 +7,8 @@ module Binpacker
     # the per-batch test-runner boot (each batch is a fresh rspec
     # process), tail batches stay small so workers finish together.
     #
-    # The floor comes in two regimes (@min_batch_weight, set in #run):
+    # The floor comes in two regimes (computed by #min_batch_weight in
+    # #run and threaded into #drain_batch):
     #   - Calibrated: weights are measured seconds, so the floor is a
     #     fixed MIN_BATCH_WEIGHT (~30s), an order of magnitude above the
     #     ~3s runner boot — boot overhead stays in the noise.
@@ -35,7 +36,6 @@ module Binpacker
       timing = Timing.new(@config.timing_file)
       timings = timing.load_with_fallback(tests)
       @timings = timings
-      @min_batch_weight = min_batch_weight(timing, timings)
 
       scheduler = Scheduler.for(@config.scheduler['algorithm'])
       queues = scheduler.partition(
@@ -53,7 +53,7 @@ module Binpacker
       end
 
       if @config.scheduler['steal_enabled']
-        run_dynamic(workers, queues, timing, tests)
+        run_dynamic(workers, queues, timing, tests, min_batch_weight(timing, timings))
       else
         run_static(workers, queues, timing, tests)
       end
@@ -126,7 +126,7 @@ module Binpacker
       finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
     end
 
-    def run_dynamic(workers, queues, timing, tests)
+    def run_dynamic(workers, queues, timing, tests, floor)
       all_timings = []
       all_passed = true
       total_examples = 0
@@ -143,7 +143,7 @@ module Binpacker
       progress = ProgressDisplay.new(workers.size)
 
       workers.zip(queues).each do |worker, queue|
-        batch = drain_batch(queue)
+        batch = drain_batch(queue, floor)
         if batch.empty?
           worker.signal_done
           worker.collect_results
@@ -184,12 +184,12 @@ module Binpacker
           worker_passed[ready.id] = ready.passed_count
 
           own_queue = queues[ready.id]
-          next_batch = drain_batch(own_queue)
+          next_batch = drain_batch(own_queue, floor)
 
           if next_batch.empty?
             donor = queues.reject(&:empty?).max_by { |q| q.total_weight(@timings) }
             if donor
-              next_batch = drain_batch(donor)
+              next_batch = drain_batch(donor, floor)
               queue_totals[ready.id] += next_batch.size
               queue_totals[donor.worker_id] -= next_batch.size
             end
@@ -257,17 +257,20 @@ module Binpacker
     def min_batch_weight(timing, timings)
       return MIN_BATCH_WEIGHT if timing.calibrated?
 
-      total = timings.values.sum
+      total = timings.values.sum(0.0)
       workers = @config.worker_count
       return MIN_BATCH_WEIGHT if total.zero? || workers.zero?
 
       total / (workers * COLD_START_BATCHES_PER_WORKER)
     end
 
-    def drain_batch(queue)
+    # Drains the next batch off +queue+: enough tests to halve its
+    # remaining predicted weight, but never less than +floor+ (see
+    # #min_batch_weight) and never fewer than one test.
+    def drain_batch(queue, floor)
       return [] if queue.nil? || queue.empty?
 
-      target = [queue.total_weight(@timings) / 2.0, @min_batch_weight].max
+      target = [queue.total_weight(@timings) / 2.0, floor].max
       batch = []
       weight = 0.0
       while (batch.empty? || weight < target) && (test = queue.pop)

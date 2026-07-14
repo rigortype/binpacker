@@ -2,7 +2,27 @@ module Binpacker
   class Orchestrator
     MIN_BATCH_WEIGHT: Float
     COLD_START_BATCHES_PER_WORKER: Integer
+
+    @config: untyped
+    @passthrough: untyped
+    @quiet: untyped
+    @report_path: untyped
+    @timings: Hash[untyped, Float]
+    @predicted_loads: Array[Float]
+
     def initialize: (untyped, ?passthrough: untyped, ?quiet: untyped, ?report_path: untyped) -> void
     def run: () -> { passed: untyped, total: untyped, passed_count: untyped, timings: Array[untyped], empty_filter: untyped }
+
+    private
+
+    def discover: () -> untyped
+    def run_static: (untyped, untyped, Binpacker::Timing, untyped) -> untyped
+    def run_dynamic: (untyped, untyped, Binpacker::Timing, untyped, Float) -> untyped
+    def write_report: (untyped, Array[untyped]) -> void
+    def min_batch_weight: (Binpacker::Timing, Hash[untyped, Float]) -> Float
+    def drain_batch: (Binpacker::WorkerQueue?, Float) -> Array[untyped]
+    def finalize: (Binpacker::Timing, Array[untyped], untyped, untyped, untyped, untyped) -> { passed: untyped, total: untyped, passed_count: untyped, timings: Array[untyped], empty_filter: untyped }
+    def minitest_empty_filter?: (untyped, untyped) -> bool
+    def minitest_include_filter?: () -> bool
   end
 end

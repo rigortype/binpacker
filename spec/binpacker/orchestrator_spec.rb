@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require 'fileutils'
+require 'timeout'
 require 'tmpdir'
 
 RSpec.describe Binpacker::Orchestrator do
@@ -71,10 +72,31 @@ RSpec.describe Binpacker::Orchestrator do
     end
   end
 
+  describe 'control-pipe isolation' do
+    it "does not hand the orchestrator's control pipe to test code that reads stdin" do
+      FileUtils.mkdir_p('spec')
+      # Under dynamic scheduling the orchestrator keeps the worker's
+      # stdin pipe open between batches. A test reading $stdin used to
+      # inherit that pipe and block forever; it must see EOF instead.
+      File.write('spec/stdin_reader_spec.rb', <<~RUBY)
+        RSpec.describe "stdin reader" do
+          it "sees EOF immediately" do
+            expect($stdin.read).to eq("")
+          end
+        end
+      RUBY
+
+      result = Timeout.timeout(60) { described_class.new(config).run }
+
+      expect(result[:passed]).to be true
+      expect(result[:total]).to eq(1)
+    end
+  end
+
   describe '#drain_batch' do
     let(:orchestrator) { described_class.new(config) }
 
-    def queue_with(weights, min_batch_weight: described_class::MIN_BATCH_WEIGHT)
+    def queue_with(weights)
       queue = Binpacker::WorkerQueue.new(0)
       timings = {}
       weights.each_with_index do |w, i|
@@ -83,14 +105,17 @@ RSpec.describe Binpacker::Orchestrator do
         timings[test.key] = w
       end
       orchestrator.instance_variable_set(:@timings, timings)
-      orchestrator.instance_variable_set(:@min_batch_weight, min_batch_weight)
       queue
+    end
+
+    def drain(queue, floor = described_class::MIN_BATCH_WEIGHT)
+      orchestrator.send(:drain_batch, queue, floor)
     end
 
     it 'halves the remaining predicted weight per batch' do
       queue = queue_with(Array.new(10, 20.0)) # 200s total
 
-      batch = orchestrator.send(:drain_batch, queue)
+      batch = drain(queue)
 
       # target = 200/2 = 100s -> 5 files of 20s
       expect(batch.size).to eq(5)
@@ -99,7 +124,7 @@ RSpec.describe Binpacker::Orchestrator do
     it 'keeps draining small tails in MIN_BATCH_WEIGHT chunks' do
       queue = queue_with(Array.new(8, 5.0)) # 40s total
 
-      batch = orchestrator.send(:drain_batch, queue)
+      batch = drain(queue)
 
       # target = max(40/2, 30) = 30s -> 6 files of 5s
       expect(batch.size).to eq(6)
@@ -108,20 +133,20 @@ RSpec.describe Binpacker::Orchestrator do
     it 'always drains at least one test regardless of weight' do
       queue = queue_with([500.0])
 
-      expect(orchestrator.send(:drain_batch, queue).size).to eq(1)
+      expect(drain(queue).size).to eq(1)
     end
 
     it 'returns an empty batch for an empty queue' do
       queue = queue_with([])
 
-      expect(orchestrator.send(:drain_batch, queue)).to be_empty
+      expect(drain(queue)).to be_empty
     end
 
     it 'honors a scale-free cold-start floor instead of MIN_BATCH_WEIGHT' do
       # cold-start floor of 10 (not 30): target = max(40/2, 10) = 20 -> 4 files
-      queue = queue_with(Array.new(8, 5.0), min_batch_weight: 10.0)
+      queue = queue_with(Array.new(8, 5.0))
 
-      expect(orchestrator.send(:drain_batch, queue).size).to eq(4)
+      expect(drain(queue, 10.0).size).to eq(4)
     end
   end
 
