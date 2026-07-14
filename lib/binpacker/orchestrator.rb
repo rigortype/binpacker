@@ -129,8 +129,6 @@ module Binpacker
     def run_dynamic(workers, queues, timing, tests, floor)
       all_timings = []
       all_passed = true
-      total_examples = 0
-      passed_examples = 0
       active = []
 
       queue_totals = queues.map(&:size)
@@ -149,8 +147,6 @@ module Binpacker
           worker.collect_results
           all_timings.concat(worker.timings)
           all_passed &&= worker.success?
-          total_examples += worker.example_count
-          passed_examples += worker.passed_count
           worker_examples[worker.id] = worker.example_count
           worker_passed[worker.id] = worker.passed_count
           worker.cleanup
@@ -176,10 +172,11 @@ module Binpacker
 
         begin
           all_passed &&= ready.success?
-          total_examples += ready.example_count
-          passed_examples += ready.passed_count
 
           worker_done[ready.id] += batch_sizes[ready.id]
+          # Worker#example_count accumulates across batches, so these
+          # are running totals per worker; the grand totals are summed
+          # once after the loop, never added per batch.
           worker_examples[ready.id] = ready.example_count
           worker_passed[ready.id] = ready.passed_count
 
@@ -218,6 +215,9 @@ module Binpacker
       end
 
       progress.finish
+
+      total_examples = worker_examples.sum
+      passed_examples = worker_passed.sum
 
       worker_stats = workers.map.with_index do |w, i|
         tw = w.timings.sum { |t| t[:time] }
