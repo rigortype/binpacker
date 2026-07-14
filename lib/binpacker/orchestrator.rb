@@ -2,7 +2,12 @@
 
 module Binpacker
   class Orchestrator
-    BATCH_SIZE = 10
+    # Dynamic batches halve the queue's remaining predicted weight,
+    # floored at MIN_BATCH_WEIGHT: early batches are large to amortize
+    # the per-batch test-runner boot (each batch is a fresh rspec
+    # process), tail batches stay small so workers finish together.
+    # Weights are measured seconds, or filesize KB on a cold start.
+    MIN_BATCH_WEIGHT = 30.0
 
     def initialize(config, passthrough: [], quiet: false, report_path: nil)
       @config = config
@@ -17,7 +22,7 @@ module Binpacker
       timings = timing.load_with_fallback(tests)
       @timings = timings
 
-      scheduler = Scheduler.for(@config.scheduler["algorithm"])
+      scheduler = Scheduler.for(@config.scheduler['algorithm'])
       queues = scheduler.partition(
         tests: tests,
         worker_count: @config.worker_count,
@@ -28,11 +33,11 @@ module Binpacker
       @predicted_loads = queues.map { |q| q.total_weight(timings) }
 
       runner_class = TestRunner.for(@config.test_runner)
-      workers = queues.map.with_index do |queue, idx|
+      workers = queues.map.with_index do |_queue, idx|
         Worker.new(idx, runner_class, passthrough: @passthrough, quiet: @quiet).tap(&:start)
       end
 
-      if @config.scheduler["steal_enabled"]
+      if @config.scheduler['steal_enabled']
         run_dynamic(workers, queues, timing, tests)
       else
         run_static(workers, queues, timing, tests)
@@ -43,9 +48,9 @@ module Binpacker
 
     def discover
       case @config.test_runner
-      when "rspec"
+      when 'rspec'
         RSpecDiscovery.new(@config).enumerate
-      when "minitest"
+      when 'minitest'
         MinitestDiscovery.new(@config).enumerate
       else
         raise ConfigError, "unsupported runner: #{@config.test_runner}"
@@ -58,7 +63,7 @@ module Binpacker
 
       workers.zip(queues).each do |worker, queue|
         worker.send_tests(queue.remaining)
-        progress.update(worker.id, done: 0, total: queue_totals[worker.id], file: queue.remaining.first&.file || "")
+        progress.update(worker.id, done: 0, total: queue_totals[worker.id], file: queue.remaining.first&.file || '')
       end
       progress.refresh
 
@@ -81,10 +86,10 @@ module Binpacker
         worker_examples[worker.id] = worker.example_count
         worker_passed[worker.id] = worker.passed_count
         worker_time[worker.id] = worker.timings.sum { |t| t[:time] }
-        progress.update(worker.id, done: queue_totals[worker.id], total: queue_totals[worker.id], file: "done")
+        progress.update(worker.id, done: queue_totals[worker.id], total: queue_totals[worker.id], file: 'done')
         progress.refresh
       rescue WorkerError => e
-        $stderr.puts "worker #{worker.id} error: #{e.message}"
+        warn "worker #{worker.id} error: #{e.message}"
         all_passed = false
       ensure
         worker.cleanup
@@ -92,7 +97,7 @@ module Binpacker
 
       progress.finish
 
-      worker_stats = workers.map.with_index do |w, i|
+      worker_stats = workers.map.with_index do |_w, i|
         {
           files: queue_totals[i],
           total_time: worker_time[i],
@@ -135,13 +140,13 @@ module Binpacker
           worker_passed[worker.id] = worker.passed_count
           worker.cleanup
           worker_done[worker.id] = queue_totals[worker.id]
-          progress.update(worker.id, done: worker_done[worker.id], total: queue_totals[worker.id], file: "done")
+          progress.update(worker.id, done: worker_done[worker.id], total: queue_totals[worker.id], file: 'done')
         else
           worker.send_tests(batch)
           worker.batch_done
           active << worker
           batch_sizes[worker.id] = batch.size
-          current_file = batch.first&.file || ""
+          current_file = batch.first&.file || ''
           progress.update(worker.id, done: 0, total: queue_totals[worker.id], file: current_file)
         end
       end
@@ -149,7 +154,7 @@ module Binpacker
       until active.empty?
         ready = active.find { |w| w.wait_for_batch }
         unless ready
-          active.reject! { |w| w.status == :crashed || w.status == :error }
+          active.reject! { |w| %i[crashed error].include?(w.status) }
           sleep 0.1
           next
         end
@@ -167,15 +172,19 @@ module Binpacker
           next_batch = drain_batch(own_queue)
 
           if next_batch.empty?
-            donor = queues.reject(&:empty?).max_by(&:size)
-            next_batch = drain_batch(donor) if donor
+            donor = queues.reject(&:empty?).max_by { |q| q.total_weight(@timings) }
+            if donor
+              next_batch = drain_batch(donor)
+              queue_totals[ready.id] += next_batch.size
+              queue_totals[donor.worker_id] -= next_batch.size
+            end
           end
 
           if next_batch.any?
             ready.send_tests(next_batch)
             ready.batch_done
             batch_sizes[ready.id] = next_batch.size
-            current_file = next_batch.first&.file || ""
+            current_file = next_batch.first&.file || ''
             progress.update(ready.id, done: worker_done[ready.id], total: queue_totals[ready.id], file: current_file)
             progress.refresh
           else
@@ -183,11 +192,11 @@ module Binpacker
             all_timings.concat(ready.timings)
             active.delete(ready)
             worker_done[ready.id] = queue_totals[ready.id]
-            progress.update(ready.id, done: queue_totals[ready.id], total: queue_totals[ready.id], file: "done")
+            progress.update(ready.id, done: queue_totals[ready.id], total: queue_totals[ready.id], file: 'done')
             progress.refresh
           end
         rescue WorkerError => e
-          $stderr.puts "worker #{ready.id} error: #{e.message}"
+          warn "worker #{ready.id} error: #{e.message}"
           all_passed = false
           active.delete(ready)
         end
@@ -216,7 +225,7 @@ module Binpacker
 
       Report.new(
         profile: @config.profile,
-        algorithm: @config.scheduler["algorithm"],
+        algorithm: @config.scheduler['algorithm'],
         predicted_loads: @predicted_loads,
         worker_stats: worker_stats,
         all_timings: all_timings,
@@ -226,17 +235,22 @@ module Binpacker
 
     def drain_batch(queue)
       return [] if queue.nil? || queue.empty?
+
+      target = [queue.total_weight(@timings) / 2.0, MIN_BATCH_WEIGHT].max
       batch = []
-      BATCH_SIZE.times do
-        test = queue.pop
-        break unless test
+      weight = 0.0
+      while (batch.empty? || weight < target) && (test = queue.pop)
         batch << test
+        weight += @timings.fetch(test.key, Timing::DEFAULT_WEIGHT)
       end
       batch
     end
 
     def finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
-      timing.append_all(all_timings) unless all_timings.empty?
+      unless all_timings.empty?
+        timing.append_all(all_timings)
+        timing.compact!
+      end
       empty_filter = minitest_empty_filter?(tests, total_examples)
       all_passed = false if empty_filter
 
@@ -250,7 +264,7 @@ module Binpacker
     end
 
     def minitest_empty_filter?(tests, total_examples)
-      return false unless @config.test_runner == "minitest"
+      return false unless @config.test_runner == 'minitest'
       return false unless tests.any?
       return false unless total_examples.zero?
 
@@ -260,8 +274,8 @@ module Binpacker
     def minitest_include_filter?
       @passthrough.any? do |arg|
         %w[--name --include -n -i].include?(arg) ||
-          arg.start_with?("--name=", "--include=") ||
-          (arg.start_with?("-n", "-i") && arg.length > 2)
+          arg.start_with?('--name=', '--include=') ||
+          (arg.start_with?('-n', '-i') && arg.length > 2)
       end
     end
   end
