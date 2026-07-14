@@ -1,5 +1,7 @@
 # Parent-managed work-stealing via IPC pipes
 
+> **Note**: The steal *policy* below (one Test per steal, donor chosen by queue length) is superseded by [ADR-0006](0006-weight-guided-batch-stealing.md), which dispatches weight-guided Batches and picks the donor by remaining predicted time. The parent-managed structure decided here — the parent owns the queues, Workers pull over a pipe and are unaware of stealing — still holds.
+
 The scheduler (parent process) holds all WorkerQueues and responds to Worker pull requests. When a Worker's queue is empty, the parent rebalances by taking a Test from the most-loaded peer queue — implementing work-stealing without the Worker processes needing to coordinate peer-to-peer.
 
 ## Context
