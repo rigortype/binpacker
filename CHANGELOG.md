@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **[scheduler]** Work-stealing batches are weight-guided instead of a fixed 10 files: each batch drains half the queue's remaining predicted weight (floored at ~30s of predicted work), so early batches amortize the per-batch test-runner boot while tail batches stay fine-grained for balance. Stealing now picks the donor with the most remaining predicted time rather than the most files.
+- **[timing]** The timing file is compacted after each run to the last 3 samples per test, keeping it — and any CI cache built from it — bounded instead of growing by one run per invocation.
+
+### Fixed
+
+- **[scheduler]** Per-file weights are now the median of each test's recent samples. Previously the entire append-only history was summed, so a file present in N historical runs weighed ~N× its true cost — long-lived files dominated the partition and newly added ones were starved, producing avoidable worker imbalance (observed at up to ~7% max deviation on a real 4-worker CI suite even with perfect predictions).
+- **[timing]** `weight_for` normalizes its file path the same way `measured?` does, so `./spec/...` and `spec/...` resolve to the same measurement.
+- **[progress]** The per-worker summary printed the same worker id twice when two workers finished with identical stats.
+
 ## [0.3.0] - 2026-07-05
 
 v0.3.0 turns binpacker into an agent-driven tool. A hosted install guide hands off to gem-shipped `binpacker-setup` and `binpacker-improve` skills, discovered through a new `binpacker skill`/`describe` CLI that inspects a project and recommends the next step. Runs can now emit a machine-readable report of predicted-versus-actual per-worker durations for tuning, and calibration can fill in only the tests that lack timing data. The release also fixes a handful of correctness issues found while validating the flow against real projects: `--version`, file-granularity calibration, and a clear message when a project uses an unsupported framework.
