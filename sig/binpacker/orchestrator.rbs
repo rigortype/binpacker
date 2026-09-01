@@ -7,10 +7,13 @@ module Binpacker
     @passthrough: untyped
     @quiet: untyped
     @report_path: untyped
+    @shard: Binpacker::Shard?
+    @discovered_count: Integer
+    @selected_count: Integer
     @timings: Hash[untyped, Float]
     @predicted_loads: Array[Float]
 
-    def initialize: (untyped, ?passthrough: untyped, ?quiet: untyped, ?report_path: untyped) -> void
+    def initialize: (untyped, ?passthrough: untyped, ?quiet: untyped, ?report_path: untyped, ?shard: Binpacker::Shard?) -> void
     def run: () -> { passed: untyped, total: untyped, passed_count: untyped, timings: Array[untyped], empty_filter: untyped }
 
     private

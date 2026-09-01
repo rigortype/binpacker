@@ -24,20 +24,27 @@ module Binpacker
     # worker that gave the best makespan in the PR #12 simulation.
     COLD_START_BATCHES_PER_WORKER = 5
 
-    def initialize(config, passthrough: [], quiet: false, report_path: nil)
+    def initialize(config, passthrough: [], quiet: false, report_path: nil, shard: nil)
       @config = config
       @passthrough = passthrough
       @quiet = quiet
       @report_path = report_path
+      @shard = shard
     end
 
     def run
       tests = discover
       timing = Timing.new(@config.timing_file)
+      # Weights are computed over the WHOLE suite before slicing, so every shard cuts against the same
+      # numbers and the partition they agree on covers every test exactly once.
       timings = timing.load_with_fallback(tests)
       @timings = timings
 
       scheduler = Scheduler.for(@config.scheduler['algorithm'])
+      @discovered_count = tests.size
+      tests = @shard.select(tests: tests, timings: timings, scheduler: scheduler) if @shard
+      @selected_count = tests.size
+
       queues = scheduler.partition(
         tests: tests,
         worker_count: @config.worker_count,
@@ -244,7 +251,10 @@ module Binpacker
         predicted_loads: @predicted_loads,
         worker_stats: worker_stats,
         all_timings: all_timings,
-        timings: @timings
+        timings: @timings,
+        shard: @shard,
+        discovered: @discovered_count,
+        selected: @selected_count
       ).write(@report_path)
     end
 

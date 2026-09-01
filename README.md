@@ -76,9 +76,32 @@ binpacker run -- --name /UserTest#test_creates/
 
 `workers: auto` uses the number of available CPU cores. Set `BINPACKER_PROFILE=ci` or pass `--profile ci` to select a profile; CI environments (GitHub Actions, GitLab CI, Jenkins) are auto-detected and fall back to the `ci` profile when present.
 
+## Sharding across machines
+
+Workers divide a suite across the cores of one machine and share its wall clock. A **shard** divides it across machines that have no wall clock in common, so the two compose: each shard runs its own workers over its own slice, and the suite's wall time becomes roughly the slowest shard.
+
+```sh
+binpacker run --shard 1/3    # or: BINPACKER_SHARD=1/3 binpacker run
+```
+
+The slice is cut by the same weight-balanced partitioner that assigns work to workers, over the same measured timings, so shards carry equal predicted time rather than equal file counts. The cut is a pure function of that timing data: every shard computes the identical N-way partition and keeps only its own bin, which is what lets them agree without talking to each other.
+
+That agreement is also the one thing sharding can get wrong. **Every shard must load the same timing file.** A shard that loads a different one partitions differently, and the failure is silent — some tests land in no shard at all and every job still reports success. A shard cannot notice on its own, because it cannot tell "not mine" from "does not exist".
+
+So audit the matrix afterwards. Give each shard a `--report`, collect them, and check them together:
+
+```sh
+binpacker run --shard 1/3 --report shard-1.json    # in each matrix job
+binpacker shards-check shard-*.json                # in a job that needs them all
+```
+
+`shards-check` fails unless the reports describe one coherent split of one suite: same shard count, same discovered-test count, every index present exactly once, and the slices summing to the whole. In GitHub Actions, upload each shard's report as an artifact and run the check in a job that `needs` the matrix.
+
+How many shards are worth it is bounded by your slowest single file, since a file is the scheduling unit and cannot be split: a shard's wall time can never fall below the heaviest file it holds. Past that point, more shards buy only more job setup.
+
 ## Roadmap
 
-- **Container/machine-level workers** — extend the Worker model beyond single-job processes to distribute Tests across containers or machines.
+- **Example-level granularity for scheduling** — `test_granularity: example` already exists for timing; using it to partition would let sharding past the heaviest-file floor.
 
 ## License
 

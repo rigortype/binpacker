@@ -1,8 +1,17 @@
 module Binpacker
   class WorkerQueue
+    include Enumerable[untyped]
+
+    attr_reader worker_id: Integer
+
     def initialize: (untyped, ?untyped) -> void
     def empty?: () -> (false | true)
     def pop: () -> untyped
+    def peek: () -> untyped
+    def size: () -> Integer
+    def remaining: () -> Array[untyped]
     def total_weight: (Hash[untyped, Float]) -> Float
+    def push: (untyped) -> untyped
+    def each: () { (untyped) -> void } -> void
   end
 end

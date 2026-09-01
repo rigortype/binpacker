@@ -1,5 +1,16 @@
 module Binpacker
   class Scheduler
     def self.for: (untyped) -> (Binpacker::LptScheduler | Binpacker::MultifitScheduler)
+
+    # Declared on the base so a caller holding a `Scheduler` can partition; the base body raises
+    # NotImplementedError and every concrete scheduler overrides it.
+    def partition: (tests: Array[untyped], worker_count: Integer, timings: Hash[untyped, Float]) -> Array[Binpacker::WorkerQueue]
+  end
+
+  class LptScheduler < Scheduler
+  end
+
+  class MultifitScheduler < Scheduler
+    ITERATIONS: Integer
   end
 end
