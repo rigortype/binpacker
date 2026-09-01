@@ -1,0 +1,29 @@
+module Binpacker
+  class ShardCheck
+    class Result
+      attr_accessor ok: bool
+      attr_accessor problems: Array[String]
+      attr_accessor summary: String
+
+      def ok?: () -> bool
+    end
+
+    @paths: Array[String]
+
+    def self.call: (Array[String]) -> Binpacker::ShardCheck::Result
+
+    def initialize: (Array[String]) -> void
+    def call: () -> Binpacker::ShardCheck::Result
+
+    private
+
+    def load_reports: () -> [Array[[String, untyped]], Array[String]]
+    def shard_of: (String, untyped) -> Hash[Symbol, untyped]?
+    def check: (Array[Hash[Symbol, untyped]]) -> Array[String]
+    def agreement_problems: (Array[Hash[Symbol, untyped]], Symbol, String) -> Array[String]
+    def completeness_problems: (Array[Hash[Symbol, untyped]]) -> Array[String]
+    def coverage_problems: (Array[Hash[Symbol, untyped]]) -> Array[String]
+    def success: (Array[Hash[Symbol, untyped]]) -> Binpacker::ShardCheck::Result
+    def failure: (Array[String]) -> Binpacker::ShardCheck::Result
+  end
+end

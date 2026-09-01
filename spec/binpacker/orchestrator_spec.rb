@@ -36,6 +36,86 @@ RSpec.describe Binpacker::Orchestrator do
     end
   end
 
+  describe 'sharding' do
+    # Four files of one example each. Sharding is a property of the run as a whole, so the assertion that
+    # matters is over the SET of shards: each runs a strict subset, and together they run everything once.
+    def write_suite
+      FileUtils.mkdir_p('spec')
+      %w[a b c d].each do |name|
+        File.write("spec/#{name}_spec.rb", <<~RUBY)
+          RSpec.describe "#{name}" do
+            it "passes" do
+              expect(1 + 1).to eq(2)
+            end
+          end
+        RUBY
+      end
+    end
+
+    # Shards agree on the partition only while they agree on the timing data. Running them in sequence in
+    # one directory does not reproduce a CI matrix, where each job restores the same cached timing file and
+    # writes back after its siblings have already partitioned: here the first shard's run appends its own
+    # measurements, so the second would cut against timings the first never saw. Freezing the file for the
+    # duration is what makes this an honest stand-in for the matrix — and the requirement it stands for is
+    # exactly what `binpacker shards-check` exists to enforce.
+    def files_run_by(shard)
+      described_class.new(config, shard: shard).run[:timings].map { |t| File.basename(t[:file]) }.uniq
+    end
+
+    # Restores the frozen snapshot before running, so this shard partitions against exactly what its
+    # siblings did rather than against their measurements.
+    def shard_files(index, total, frozen_timings)
+      FileUtils.cp(frozen_timings, 'binpacker.timings')
+      files_run_by(Binpacker::Shard.new(index: index, total: total))
+    end
+
+    it 'runs each file in exactly one shard, and every file in some shard' do
+      write_suite
+      # Every shard partitions from this one snapshot, as a CI matrix does.
+      File.write('frozen.timings', '')
+
+      shards = (1..2).map { |i| shard_files(i, 2, 'frozen.timings') }
+
+      expect(shards.flatten).to match_array(%w[a_spec.rb b_spec.rb c_spec.rb d_spec.rb])
+      expect(shards[0] & shards[1]).to be_empty
+    end
+
+    it 'records the whole-suite and slice counts so a matrix can be audited afterwards' do
+      write_suite
+
+      described_class.new(
+        config, shard: Binpacker::Shard.new(index: 1, total: 2), report_path: 'report.json'
+      ).run
+
+      shard = JSON.parse(File.read('report.json'))['shard']
+      expect(shard).to include('index' => 1, 'total' => 2, 'discovered_tests' => 4)
+      expect(shard['selected_tests']).to be_between(1, 3)
+    end
+
+    it 'writes no shard section for an unsharded run' do
+      write_suite
+
+      described_class.new(config, report_path: 'report.json').run
+
+      expect(JSON.parse(File.read('report.json'))['shard']).to be_nil
+    end
+
+    it 'reports only its own slice as the run total' do
+      write_suite
+
+      result = described_class.new(config, shard: Binpacker::Shard.new(index: 1, total: 4)).run
+
+      expect(result[:passed]).to be true
+      expect(result[:total]).to eq(1)
+    end
+
+    it 'runs the whole suite when given no shard' do
+      write_suite
+
+      expect(files_run_by(nil).size).to eq(4)
+    end
+  end
+
   describe 'run report' do
     it 'writes a JSON report to report_path' do
       FileUtils.mkdir_p('spec')

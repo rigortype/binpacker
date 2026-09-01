@@ -3,7 +3,8 @@ module Binpacker
     SCHEMA: Integer
     DRIFT_LIMIT: Integer
 
-    def initialize: (profile: untyped, algorithm: untyped, predicted_loads: untyped, worker_stats: untyped, all_timings: untyped, timings: untyped) -> void
+    def initialize: (profile: untyped, algorithm: untyped, predicted_loads: untyped, worker_stats: untyped, all_timings: untyped, timings: untyped, ?shard: Binpacker::Shard?, ?discovered: Integer?, ?selected: Integer?) -> void
+    def shard_section: () -> Hash[Symbol, untyped]?
     def to_h: () -> Hash[Symbol, untyped]
     def write: (untyped) -> untyped
   end

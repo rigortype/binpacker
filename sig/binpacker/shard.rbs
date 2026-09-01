@@ -1,0 +1,13 @@
+module Binpacker
+  class Shard
+    attr_reader index: Integer
+    attr_reader total: Integer
+
+    def self.parse: (String?) -> Binpacker::Shard?
+
+    def initialize: (index: Integer, total: Integer) -> void
+    def to_s: () -> String
+    def whole_suite?: () -> bool
+    def select: (tests: Array[untyped], timings: Hash[untyped, Float], scheduler: Binpacker::Scheduler) -> Array[untyped]
+  end
+end

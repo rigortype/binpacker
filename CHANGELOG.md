@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **[sharding]** `binpacker run --shard K/N` runs one slice of the suite, so a CI matrix can split it across machines.
+  - Workers divide a suite across one machine's cores; a shard divides it across machines that share no wall clock, and the two compose — each shard runs its own workers over its own slice. The slice is cut by the same weight-balanced partitioner used for workers, over the same timings, so shards carry equal predicted time rather than equal file counts. `BINPACKER_SHARD` is read too, for matrices that set env more easily than they rewrite a command.
+- **[sharding]** `binpacker shards-check <report>...` verifies that a matrix's run reports cover the whole suite.
+  - Shards agree on the partition only while they agree on the timing data it is cut from, and a shard that loads a different timing file partitions differently — leaving tests in no shard at all while every job still reports success. No single shard can detect that, because it cannot tell "not mine" from "does not exist". The check runs after the matrix, over each shard's `--report`, and fails unless the reports describe one coherent split of one suite.
+- **[run report]** A sharded run's report carries a `shard` section: index, total, the whole-suite discovered count, and this shard's selected count.
+  - This is what `shards-check` reads. `discovered_tests` is recorded before slicing, so it agrees across shards that see the same repository and gives the sum of `selected_tests` something to be checked against.
+
 ## [0.4.0] - 2026-07-15
 
 v0.4.0 is a scheduling-quality release: it makes binpacker's predicted weights trustworthy, and then spends them better. Weights are now the median of a test's recent runs rather than the sum of its entire history, and every weight — measured or estimated from file size — is expressed in seconds, so they can be compared and added up meaningfully. Work-stealing uses those weights to size each batch and to pick which worker to steal from, which cut maximum worker deviation from 8.6% to about 2% on a real four-worker suite. The release also fixes two bugs that could bite anyone running with stealing enabled: a test that reads stdin would deadlock the entire run, and the final example count was inflated on every extra batch.
