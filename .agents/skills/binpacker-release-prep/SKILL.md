@@ -101,7 +101,7 @@ Bump up version to x.y.z
 git push -u origin release/x.y.z
 ```
 
-This triggers `ci.yml` — tests across Ruby 3.2, 3.3, and 3.4. Do not merge until the gate is green.
+This triggers both gates: `ci.yml` runs the suite across Ruby 3.2, 3.3, 3.4 and 4.0, and `rigor.yml` runs the type check. Do not merge until both are green.
 
 ## Open the release PR and merge it on green
 
@@ -147,6 +147,6 @@ bundle exec rake release:github
 - `gem build binpacker.gemspec` succeeded and the produced `.gem` is not committed.
 - The final commit message follows `Bump up version to x.y.z`.
 - Release work happened on a `release/x.y.z` branch (not directly on `master`).
-- Before merge: `ci.yml` gate is green.
+- Before merge: the `ci.yml` and `rigor.yml` gates are both green.
 - The release PR merged to `master` keeping the `Bump up version to x.y.z` commit intact.
 - After publish: the `vx.y.z` tag, the RubyGems push, and the GitHub Release all exist; the release branch is deleted.
