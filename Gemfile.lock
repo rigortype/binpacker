@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    binpacker (0.4.0)
+    binpacker (0.5.0)
 
 GEM
   remote: https://rubygems.org/
@@ -65,7 +65,7 @@ DEPENDENCIES
   rspec
 
 CHECKSUMS
-  binpacker (0.4.0)
+  binpacker (0.5.0)
   bundler (4.0.13) sha256=19f08be7f27022cf0b89f27da0b044ae075e8270a9ef44ad248a932614e1ca3b
   debug (1.11.1) sha256=2e0b0ac6119f2207a6f8ac7d4a73ca8eb4e440f64da0a3136c30343146e952b6
   diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
