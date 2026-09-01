@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-01
+
+v0.5.0 is a sharding release: it extends binpacker's balancing past the boundary of a single machine. Workers divide a suite across the cores of one runner and share its wall clock, so a suite's wall time was floored at whatever one machine could do; `binpacker run --shard K/N` cuts the suite into slices that a CI matrix runs in parallel, and the two compose — each shard still runs its own workers over its own slice. Shards agree on the partition without communicating, because each computes the same weight-balanced cut from the same timing data, and that is also the one thing sharding can get wrong: a shard that reads a different timing file leaves tests in no shard at all while every job still reports success. So a sharded run records an audit trail in its report, and `binpacker shards-check` runs after the matrix and fails unless the reports describe one coherent split of one suite.
+
 ### Added
 
 - **[sharding]** `binpacker run --shard K/N` runs one slice of the suite, so a CI matrix can split it across machines.
@@ -140,7 +144,8 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/rigortype/binpacker/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rigortype/binpacker/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rigortype/binpacker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rigortype/binpacker/compare/v0.1.0...v0.2.0
