@@ -54,9 +54,14 @@ Check the summary's `Balance: max deviation`. A large deviation on the first run
 Add (or extend) a CI workflow so the suite runs under binpacker. The workflow should:
 
 - Install binpacker (via the project's dependency manager or `gem install binpacker`).
-- Restore and save `binpacker.timings` with `actions/cache` (key includes OS + a hash of the test files). This is the runtime timing layer.
+- Restore and save `binpacker.timings` with `actions/cache` (key includes OS + a hash of the test files). This is the runtime timing layer. Put a **generation token** in the key (`binpacker-timings-v1-…`) so the history can be discarded later — it has to be, whenever a test file is split, renamed or deleted.
 - Run `binpacker run --profile ci` (which emits the run report via `report_file`).
 - Upload the run report with `actions/upload-artifact` so `binpacker-improve` can read it later.
+
+Two things that only fail on a cache miss, so verify them rather than assuming the first green run proved them:
+
+- **The `--report` directory must already exist.** binpacker creates the timing file's directory but not the report's, so `--report tmp/report.json` raises `ENOENT` unless something made `tmp/` first. A restored timing cache creates it as a side effect, which hides the problem until the first genuine miss — and then the whole matrix fails with every test passing. Add an explicit `mkdir -p`.
+- **A cache-key bump costs two cold runs.** Caches saved on a feature branch are invisible to the default branch, so the first run after the merge is cold too.
 
 Propose the workflow YAML and let the user review it before writing.
 
