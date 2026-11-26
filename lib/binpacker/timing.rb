@@ -24,6 +24,12 @@ module Binpacker
     # those files' own changes.
     SPEED_FACTOR_MIN_FILES = 5
 
+    # A factor this close to 1.0 is recorded as 1.0. Each run's factor is an
+    # estimate, and dividing by it every run would compound that estimate's
+    # noise into a slow drift of the whole history's scale; inside the band
+    # the run's samples are kept as measured seconds.
+    SPEED_FACTOR_DEADBAND = 0.05
+
     def initialize(path)
       @path = Pathname(path)
     end
@@ -98,7 +104,8 @@ module Binpacker
       end
       return nil if ratios.size < SPEED_FACTOR_MIN_FILES
 
-      median(ratios)
+      factor = median(ratios)
+      (factor - 1.0).abs < SPEED_FACTOR_DEADBAND ? 1.0 : factor
     end
 
     # [normalized file, name] => [sample, ...] in append (= run) order.

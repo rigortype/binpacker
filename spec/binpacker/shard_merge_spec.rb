@@ -58,6 +58,19 @@ RSpec.describe Binpacker::ShardMerge do
     expect(result.conflicts).to eq(1)
   end
 
+  it 'compares against the base as compacted, so an uncompacted base does not read as re-measured everywhere' do
+    long = [1.0, 1.1, 1.2, 1.3].map { |t| ['spec/c_spec.rb', 'c', t] }
+    write('long-base.timings', long)
+    write('shard-a.timings', long.last(3))
+    write('shard-b.timings', long.last(3) + [['spec/c_spec.rb', 'c', 9.0]])
+
+    result = described_class.call(base: 'long-base.timings', shards: %w[shard-b.timings shard-a.timings],
+                                  output: 'merged.timings')
+
+    expect(samples('merged.timings')[%w[spec/c_spec.rb c]]).to eq([1.2, 1.3, 9.0])
+    expect(result.conflicts).to eq(0)
+  end
+
   it 'may write over its own base' do
     described_class.call(base: 'base.timings', shards: %w[shard-1.timings], output: 'base.timings')
 

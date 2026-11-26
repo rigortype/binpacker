@@ -11,9 +11,9 @@ module Binpacker
   #
   # The merge needs no record of which shard ran what: a test a shard did not run is byte-for-byte what the
   # base held, so per test, the shard whose samples differ from the base is the one that measured it. In a
-  # coherent split that is at most one shard. Should two disagree anyway (an overlapping partition — which
-  # `shards-check` exists to catch), the later file on the command line wins, and the test is counted in
-  # Result#conflicts rather than dropped.
+  # coherent split that is at most one shard. Should two disagree anyway — an overlapping partition, or rspec
+  # filing a shared example group's timings under the group's own file, which two shards can both run — the
+  # later file on the command line wins, and the test is counted in Result#conflicts rather than dropped.
   class ShardMerge
     Result = Struct.new(:tests, :updated, :conflicts, keyword_init: true)
 
@@ -28,7 +28,9 @@ module Binpacker
     end
 
     def call
-      base = @base ? Timing.new(@base).samples : {}
+      # Compared as the shards will have written it back: compaction trims every test to its most recent
+      # samples, so against an uncompacted base every test would look re-measured by every shard.
+      base = (@base ? Timing.new(@base).samples : {}).transform_values { |t| t.last(Timing::MAX_SAMPLES_PER_TEST) }
       merged = base.dup
       writers = Hash.new(0)
 

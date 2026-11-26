@@ -323,7 +323,8 @@ module Binpacker
       return if result.conflicts.zero?
 
       warn "#{result.conflicts} #{pluralize(result.conflicts, 'test')} re-measured by more than one shard " \
-           '(the later file won); run `binpacker shards-check` over the reports.'
+           '(the later file won): an overlapping split, which `binpacker shards-check` reports, or a shared ' \
+           'example group run by several shards.'
     end
 
     def test_unit_label(config)

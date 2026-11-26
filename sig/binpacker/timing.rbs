@@ -5,6 +5,7 @@ module Binpacker
     MAX_SAMPLES_PER_TEST: Integer
     SPEED_FACTOR_MIN_FILE_WEIGHT: Float
     SPEED_FACTOR_MIN_FILES: Integer
+    SPEED_FACTOR_DEADBAND: Float
     def calibrated?: () -> bool
     def load_with_fallback: (untyped) -> Hash[untyped, Float]
     def load_raw: () -> (Hash[[String, untyped], untyped] | {})
