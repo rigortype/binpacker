@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-27
+
+v0.6.0 is a sharding follow-up that keeps the timing history behind a sharded matrix complete and comparable. `binpacker shards-merge` folds every shard's measurements back into one file, and opt-in speed normalization stops a slow CI runner from skewing the weights the next partition is cut on. Run reports now say how fast each runner was and limit drift to the shard's own files, and the bundled skills explain how to diagnose an unbalanced matrix.
+
 ### Added
 
 - **[sharding]** `binpacker shards-merge --base BASE --output OUT <shard timing file>...` folds a matrix's timing files into one.
@@ -15,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CI runners differ in speed by up to 1.8× on the same slice, and a sample taken on a slow runner inflates its files' weights against every other file's. The factor is the median, over the files the run measured that have history, of measured / predicted seconds; a run with fewer than five such files records its samples unchanged, and a factor within 5% of 1.0 is treated as 1.0 so estimation noise does not compound. A normalized run's `drift` divides its measurements by the factor too.
 - **[run report]** A `speed` section: the run's speed factor and whether its samples were normalized.
   - Comparing `speed.factor` across a matrix's reports tells a slow runner from a bad partition.
+
+### Changed
+
+- **[setup]** The `binpacker-setup` and `binpacker-improve` skills now cover diagnosing and maintaining a sharded CI setup.
+  - Setup adds a generation token to the timing cache key and creates the `--report` directory explicitly. Improve first rules out causes outside binpacker, and proposes discarding the timing history after a test file is split, renamed or deleted.
 
 ### Fixed
 
@@ -158,7 +167,8 @@ work-stealing.
 - **[calibration]** `binpacker calibrate` runs tests serially to seed the
   timing file before the first parallel run.
 
-[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/rigortype/binpacker/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/rigortype/binpacker/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/rigortype/binpacker/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rigortype/binpacker/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rigortype/binpacker/compare/v0.2.0...v0.3.0
