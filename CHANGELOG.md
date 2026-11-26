@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **[sharding]** `binpacker shards-merge --base BASE --output OUT <shard timing file>...` folds a matrix's timing files into one.
+  - Every shard writes the whole timing file back with only its own slice re-measured, so a CI cache that keeps one shard's file loses the other slices' measurements. Per test, the merge keeps the samples of the shard whose entry differs from the base, and warns when two shards both re-measured one test.
+- **[timing]** `normalize_speed: true` records each run's samples divided by the run's speed factor.
+  - CI runners differ in speed by up to 1.8× on the same slice, and a sample taken on a slow runner inflates its files' weights against every other file's. The factor is the median, over the files the run measured that have history, of measured / predicted seconds; a run with fewer than five such files records its samples unchanged.
+- **[run report]** A `speed` section: the run's speed factor and whether its samples were normalized.
+  - Comparing `speed.factor` across a matrix's reports tells a slow runner from a bad partition.
+
+### Fixed
+
+- **[run report]** A sharded run's `drift` lists only its own slice's files.
+  - It compared the whole suite's predicted weights with one slice's measurements, so every other shard's heaviest files filled the list with `actual: 0.0`.
+
 ## [0.5.0] - 2026-09-01
 
 v0.5.0 is a sharding release: it extends binpacker's balancing past the boundary of a single machine. Workers divide a suite across the cores of one runner and share its wall clock, so a suite's wall time was floored at whatever one machine could do; `binpacker run --shard K/N` cuts the suite into slices that a CI matrix runs in parallel, and the two compose — each shard still runs its own workers over its own slice. Shards agree on the partition without communicating, because each computes the same weight-balanced cut from the same timing data, and that is also the one thing sharding can get wrong: a shard that reads a different timing file leaves tests in no shard at all while every job still reports success. So a sharded run records an audit trail in its report, and `binpacker shards-check` runs after the matrix and fails unless the reports describe one coherent split of one suite.

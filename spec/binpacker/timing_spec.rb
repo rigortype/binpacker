@@ -225,4 +225,35 @@ RSpec.describe Binpacker::Timing do
       expect(timing.measured?(file: 'spec/b_spec.rb', name: 'b 1')).to be true
     end
   end
+  describe '#speed_factor' do
+    def history(files, time:)
+      files.each { |f| timing.append(file: f, name: 'x', time: time) }
+    end
+
+    def run_of(files, time:)
+      files.map { |f| { file: "./#{f}", name: 'x', time: time } }
+    end
+
+    let(:files) { (1..6).map { |i| "spec/f#{i}_spec.rb" } }
+
+    it 'is the median of measured / predicted over files with history' do
+      history(files, time: 10.0)
+      entries = run_of(files, time: 20.0)
+      entries[0][:time] = 200.0 # one file that genuinely got slower does not move the median
+
+      expect(timing.speed_factor(entries)).to be_within(0.001).of(2.0)
+    end
+
+    it 'is nil when too few files carry history' do
+      history(files.first(4), time: 10.0)
+
+      expect(timing.speed_factor(run_of(files, time: 5.0))).to be_nil
+    end
+
+    it 'ignores files too light to say anything about the machine' do
+      history(files, time: 0.1)
+
+      expect(timing.speed_factor(run_of(files, time: 0.2))).to be_nil
+    end
+  end
 end

@@ -1,0 +1,18 @@
+module Binpacker
+  class ShardMerge
+    class Result
+      attr_accessor tests: Integer
+      attr_accessor updated: Integer
+      attr_accessor conflicts: Integer
+    end
+
+    @base: String?
+    @shards: Array[String]
+    @output: String
+
+    def self.call: (base: String?, shards: Array[String], output: String) -> Binpacker::ShardMerge::Result
+
+    def initialize: (base: String?, shards: Array[String], output: String) -> void
+    def call: () -> Binpacker::ShardMerge::Result
+  end
+end

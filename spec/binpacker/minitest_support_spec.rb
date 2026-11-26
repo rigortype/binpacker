@@ -102,6 +102,7 @@ RSpec.describe "Minitest support" do
       allow(config).to receive(:timing_file).and_return("binpacker.timings")
       allow(config).to receive(:worker_count).and_return(workers)
       allow(config).to receive(:scheduler).and_return({ "algorithm" => "lpt" })
+      allow(config).to receive(:normalize_speed).and_return(false)
     end
   end
 

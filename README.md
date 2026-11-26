@@ -103,6 +103,8 @@ How many shards are worth it is bounded by your slowest single file, since a fil
 
 Reach for the reports before reaching for the config, because the most common cause is not the partition. Compare each report's `predicted_makespan`: if they agree, binpacker cut equal slices and the difference came from somewhere else. In one real matrix the three slices were 534.6s of predicted weight apiece and the jobs still ran 339s, 172s and 117s — the spread was 145s of *other* steps pinned to the first matrix job with `if: matrix.shard == 1`, which no scheduler setting could have fixed. Anything a matrix runs once and pins to an arbitrary arm belongs in its own job.
 
+When the predicted makespans agree but the jobs do not, compare each report's `speed.factor` next. CI runners are not one machine: the same slice of one suite, cut from the same timing file, has run in 664s on one runner and 1208s on another, every worker on the slow one uniformly slower. No partition computed before the matrix starts can absorb that — it decides which shard is last, and the only defence is a lower per-shard floor. What *can* be fixed is what such a run does to the history; see [Timing data from a sharded matrix](#timing-data-from-a-sharded-matrix).
+
 When the predicted makespans genuinely differ, one file is over the per-worker budget. Divide the suite's total predicted weight by shards × workers to get the floor every shard should reach, and look for a `predicted` above it in the reports — that file occupies a whole worker and sets its shard's makespan on its own.
 
 Splitting such a file is easier than it looks, because the cost is usually concentrated rather than spread. The timing file records per **example**, so you can attribute a file to its blocks without instrumenting anything:
@@ -122,6 +124,18 @@ ruby -rjson -e '
 In the case above, one block was 65% of a 5,955-line file and the next was 9% — a single seam rather than a judgement call about where to cut.
 
 **Before you split, read the two traps below.** A split is not free: binpacker will keep charging the old path for the tests that moved.
+
+## Timing data from a sharded matrix
+
+Each shard restores the same timing file, measures only its own slice, and writes the whole file back. A CI cache keeps one of those files, so keeping any one shard's write-back throws the other slices' measurements away, and their weights age until a run puts their files in the shard whose file was kept. Fold them back together in a job that needs the matrix:
+
+```sh
+binpacker shards-merge --base base.timings --output binpacker.timings shard-1.timings shard-2.timings shard-3.timings
+```
+
+`--base` is the file every shard restored (omit it on a cold start). A test a shard did not run is byte-for-byte what the base held, so the merge keeps, per test, the samples of the shard that re-measured it, and warns if two shards both did — an overlapping split, which `shards-check` reports. Save the merged file as the cache, not a shard's.
+
+A sample also carries the speed of the runner that took it, so a history fed by a matrix mixes machines that differ by up to 1.8×: a file last measured on a slow runner looks heavy next to one measured on a fast runner, and the next partition is cut on that skewed scale. Set `normalize_speed: true` in the profile to record each run's samples divided by its `speed.factor`, which keeps the history on one scale. Leave it off on a single machine, where the factor is noise around 1.0 and normalized samples stop being wall-clock seconds.
 
 ## Timing data after a file moves
 

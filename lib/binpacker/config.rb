@@ -15,6 +15,7 @@ module Binpacker
       "test_pattern" => "spec/**/*_spec.rb",
       "test_exclude" => [],
       "report_file" => nil,
+      "normalize_speed" => false,
       "scheduler" => {
         "strategy" => "static",
         "steal_enabled" => false,

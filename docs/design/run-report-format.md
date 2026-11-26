@@ -18,6 +18,7 @@ The report is the data the `binpacker-improve` workflow reasons over. See [ADR-0
     { "id": 0, "predicted": 333.1, "actual": 354.5, "tests": 70, "examples": 1703 }
   ],
   "balance": { "predicted_deviation_pct": 0.3, "actual_deviation_pct": 6.4 },
+  "speed": { "factor": 1.06, "normalized": false },
   "drift": [
     { "file": "spec/slow_spec.rb", "predicted": 5.0, "actual": 7.2 }
   ]
@@ -39,7 +40,9 @@ The report is the data the `binpacker-improve` workflow reasons over. See [ADR-0
 | `workers[].examples` | int | Number of examples executed by this Worker. |
 | `balance.predicted_deviation_pct` | float | Max predicted-load deviation from a perfect split, as a percentage. |
 | `balance.actual_deviation_pct` | float | Max actual deviation from a perfect split, as a percentage. |
-| `drift[]` | array | Top-N files by absolute predicted-vs-actual gap, largest first. Predicted and actual are both aggregated to file level so the comparison holds even when timings are recorded per example. |
+| `speed.factor` | float? | How fast this machine ran against the timing history: the median, over the files it ran that have history, of measured / predicted seconds. `2.0` means twice as slow as predicted. `null` when too few files qualify. Comparing it across a matrix's reports separates a slow runner from a bad partition. |
+| `speed.normalized` | bool | Whether this run recorded its samples divided by `speed.factor` (`normalize_speed: true`). |
+| `drift[]` | array | Top-N files by absolute predicted-vs-actual gap, largest first, over the files this run selected (a shard's own slice). Predicted and actual are both aggregated to file level so the comparison holds even when timings are recorded per example. |
 
 ## Conventions
 

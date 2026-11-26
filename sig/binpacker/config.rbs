@@ -8,6 +8,7 @@ module Binpacker
     def test_exclude: () -> Array[String]
     def test_granularity: () -> String
     def report_file: () -> String?
+    def normalize_speed: () -> bool
     def profile: () -> String
   end
 end
