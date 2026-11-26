@@ -94,7 +94,11 @@ module Binpacker
     # are compared at the same granularity even when timings are recorded
     # per example. Both sides are aggregated to normalized file paths.
     def drift
-      actual = aggregate_by_file(@all_timings.map { |e| [e[:file], e[:time]] })
+      # A normalized run's history is on the normalized scale, so its measurements are put on that scale too:
+      # otherwise a slow runner drifts every file by its factor and the heaviest files crowd out the ones
+      # whose cost really changed.
+      scale = @normalized && @speed_factor ? @speed_factor : 1.0
+      actual = aggregate_by_file(@all_timings.map { |e| [e[:file], e[:time] / scale] })
       predicted = aggregate_by_file(@timings.map { |(file, _name), weight| [file, weight] })
 
       (actual.keys | predicted.keys)

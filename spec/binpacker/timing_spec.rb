@@ -244,6 +244,12 @@ RSpec.describe Binpacker::Timing do
       expect(timing.speed_factor(entries)).to be_within(0.001).of(2.0)
     end
 
+    it 'is 1.0 inside the deadband, so noise does not compound into drift' do
+      history(files, time: 10.0)
+
+      expect(timing.speed_factor(run_of(files, time: 10.3))).to eq(1.0)
+    end
+
     it 'is nil when too few files carry history' do
       history(files.first(4), time: 10.0)
 
