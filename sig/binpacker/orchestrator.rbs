@@ -12,6 +12,8 @@ module Binpacker
     @selected_count: Integer
     @timings: Hash[untyped, Float]
     @predicted_loads: Array[Float]
+    @selected_keys: Array[untyped]
+    @speed_factor: Float?
 
     def initialize: (untyped, ?passthrough: untyped, ?quiet: untyped, ?report_path: untyped, ?shard: Binpacker::Shard?) -> void
     def run: () -> { passed: untyped, total: untyped, passed_count: untyped, timings: Array[untyped], empty_filter: untyped }
@@ -25,6 +27,8 @@ module Binpacker
     def min_batch_weight: (Binpacker::Timing, Hash[untyped, Float]) -> Float
     def drain_batch: (Binpacker::WorkerQueue?, Float) -> Array[untyped]
     def finalize: (Binpacker::Timing, Array[untyped], untyped, untyped, untyped, untyped) -> { passed: untyped, total: untyped, passed_count: untyped, timings: Array[untyped], empty_filter: untyped }
+    def normalize?: () -> bool
+    def normalized: (Array[Hash[Symbol, untyped]]) -> Array[Hash[Symbol, untyped]]
     def minitest_empty_filter?: (untyped, untyped) -> bool
     def minitest_include_filter?: () -> bool
   end

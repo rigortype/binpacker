@@ -13,6 +13,17 @@ module Binpacker
     # run (GC pause, noisy CI neighbour) unable to move the weight.
     MAX_SAMPLES_PER_TEST = 3
 
+    # A run's speed factor is the median, over the files it measured that
+    # already carry history, of measured / predicted seconds. Files lighter
+    # than this are left out: their few-millisecond weights swing on noise
+    # that says nothing about the machine.
+    SPEED_FACTOR_MIN_FILE_WEIGHT = 1.0
+
+    # Fewer qualifying files than this and the run's factor is not
+    # estimated at all: a median over a handful of files mostly measures
+    # those files' own changes.
+    SPEED_FACTOR_MIN_FILES = 5
+
     def initialize(path)
       @path = Pathname(path)
     end
@@ -57,6 +68,48 @@ module Binpacker
       samples = samples_by_test
       return if samples.empty?
 
+      write_samples(samples)
+    end
+
+    # How fast the machine that produced +entries+ (one run's measured
+    # timings) ran against the history in this file: the median, over the
+    # files both sides know, of measured / predicted seconds. 2.0 means the
+    # run took twice as long as its history predicts; nil when too few
+    # files qualify to say (see SPEED_FACTOR_MIN_FILES).
+    #
+    # CI runners are not one machine. The same slice of a suite has run in
+    # 664s on one runner and 1208s on another, and a sample recorded on the
+    # slow one inflates its files' weights against every other file's, so
+    # the next partition is cut on a skewed scale. Dividing a run's samples
+    # by its factor before recording them keeps the history on one scale.
+    # The median is over files, not a ratio of sums, so one file that
+    # genuinely got slower in this run cannot move the factor much.
+    def speed_factor(entries)
+      predicted = load_per_file
+      actual = entries.each_with_object(Hash.new(0.0)) do |e, acc|
+        acc[normalize_path(e[:file])] += e[:time].to_f
+      end
+
+      ratios = actual.filter_map do |file, seconds|
+        weight = predicted[file]
+        next if weight.nil? || weight < SPEED_FACTOR_MIN_FILE_WEIGHT || !seconds.positive?
+
+        seconds / weight
+      end
+      return nil if ratios.size < SPEED_FACTOR_MIN_FILES
+
+      median(ratios)
+    end
+
+    # [normalized file, name] => [sample, ...] in append (= run) order.
+    def samples
+      samples_by_test.transform_values(&:dup)
+    end
+
+    # Replaces the file's contents with +samples+ (the shape #samples
+    # returns), keeping the most recent MAX_SAMPLES_PER_TEST per test.
+    def write_samples(samples)
+      @path.dirname.mkpath unless @path.dirname.directory?
       tmp = Pathname("#{@path}.tmp")
       tmp.open('w', encoding: 'UTF-8') do |io|
         samples.each do |(file, name), times|

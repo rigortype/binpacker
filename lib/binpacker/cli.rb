@@ -17,6 +17,8 @@ module Binpacker
       @quiet = false
       @incremental = false
       @report_path = nil
+      @base_path = nil
+      @output_path = nil
       @skill_list = false
       @skill_path = false
       @skill_describe = false
@@ -35,6 +37,8 @@ module Binpacker
         cmd_run
       when 'shards-check'
         cmd_shards_check
+      when 'shards-merge'
+        cmd_shards_merge
       when 'init'
         cmd_init
       when 'skill'
@@ -86,6 +90,14 @@ module Binpacker
           @shard_spec = v
         end
 
+        opts.on('--base PATH', '(shards-merge) The timing file every shard started from') do |v|
+          @base_path = v
+        end
+
+        opts.on('--output PATH', '(shards-merge) Where to write the merged timing file') do |v|
+          @output_path = v
+        end
+
         opts.on('--list', '(skill) List bundled skills') do
           @skill_list = true
         end
@@ -110,7 +122,7 @@ module Binpacker
       # (e.g. --version), so `binpacker --version` isn't clobbered to nil.
       @command = remaining.shift || @command
       @skill_name = remaining.first
-      # `shards-check` takes a list of run-report paths, so the positionals stay available in full rather
+      # `shards-check` and `shards-merge` take a list of paths, so the positionals stay available in full rather
       # than being consumed into the single-name slot `skill` uses.
       @shard_reports = remaining
     end
@@ -289,6 +301,31 @@ module Binpacker
       exit 1
     end
 
+    # Run after a sharded matrix, over the timing file each shard wrote back. Each shard measured only its
+    # own slice, so keeping any one of their files throws the other slices' measurements away.
+    def cmd_shards_merge
+      problems = []
+      problems << '--output PATH is required' unless @output_path
+      problems << 'no shard timing files given' if @shard_reports.empty?
+      missing = @shard_reports.reject { |path| File.exist?(path) }
+      problems.concat(missing.map { |path| "shard timing file not found: #{path}" })
+      if @base_path && !File.exist?(@base_path)
+        problems << "base timing file not found: #{@base_path} (omit --base on a cold start)"
+      end
+      unless problems.empty?
+        problems.each { |problem| warn problem }
+        exit 1
+      end
+
+      result = ShardMerge.call(base: @base_path, shards: @shard_reports, output: @output_path)
+      puts "Merged #{@shard_reports.size} shard timing #{pluralize(@shard_reports.size, 'file')} into " \
+           "#{@output_path}: #{result.updated} of #{result.tests} #{pluralize(result.tests, 'test')} re-measured."
+      return if result.conflicts.zero?
+
+      warn "#{result.conflicts} #{pluralize(result.conflicts, 'test')} re-measured by more than one shard " \
+           '(the later file won); run `binpacker shards-check` over the reports.'
+    end
+
     def test_unit_label(config)
       config.test_runner == 'rspec' ? 'example' : 'test'
     end
@@ -304,6 +341,7 @@ module Binpacker
         Commands:
           run          Execute tests across worker processes
           shards-check Verify a sharded matrix's run reports cover the whole suite
+          shards-merge Fold the timing files a sharded matrix wrote into one
           calibrate    Run tests serially to generate timing data
           init         Create binpacker.yml with auto-detected settings
           describe     Report project state and recommend the next skill
@@ -314,6 +352,8 @@ module Binpacker
           --incremental    (calibrate) Measure only tests without timing data
           --report PATH    (run) Write a JSON run report to PATH
           --shard K/N      (run) Run only shard K of N (1-based; env: BINPACKER_SHARD)
+          --base PATH      (shards-merge) The timing file every shard started from
+          --output PATH    (shards-merge) Where to write the merged timing file
           --list           (skill) List bundled skills
           --path           (skill) Print the SKILL.md path for <name>
           --describe       (skill) Report project state and next skill
@@ -325,6 +365,7 @@ module Binpacker
           binpacker run -- --tag ~slow
           binpacker run --shard 2/3 --report shard-2.json
           binpacker shards-check shard-*.json
+          binpacker shards-merge --base base.timings --output merged.timings shard-*.timings
           binpacker calibrate --incremental
           binpacker describe
           binpacker skill binpacker-setup

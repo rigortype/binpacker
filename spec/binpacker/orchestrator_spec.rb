@@ -109,6 +109,17 @@ RSpec.describe Binpacker::Orchestrator do
       expect(result[:total]).to eq(1)
     end
 
+    it "lists drift only for its own slice's files" do
+      write_suite
+
+      result = described_class.new(
+        config, shard: Binpacker::Shard.new(index: 1, total: 2), report_path: 'report.json'
+      ).run
+
+      ran = result[:timings].map { |t| t[:file].delete_prefix('./') }.uniq
+      expect(JSON.parse(File.read('report.json'))['drift'].map { |d| d['file'] }).to match_array(ran)
+    end
+
     it 'runs the whole suite when given no shard' do
       write_suite
 
@@ -149,6 +160,58 @@ RSpec.describe Binpacker::Orchestrator do
       described_class.new(config).run
 
       expect(Dir.glob('*.json')).to be_empty
+    end
+  end
+
+  describe 'speed normalization' do
+    # Five files whose history says 10s each, on a machine that runs them in milliseconds: the run's speed
+    # factor is tiny, and a normalized run records its samples back on the history's 10s scale.
+    def write_slow_history
+      FileUtils.mkdir_p('spec')
+      %w[a b c d e].each do |name|
+        File.write("spec/#{name}_spec.rb", <<~RUBY)
+          RSpec.describe "#{name}" do
+            it "passes" do
+              expect(1 + 1).to eq(2)
+            end
+          end
+        RUBY
+      end
+      timing = Binpacker::Timing.new('binpacker.timings')
+      %w[a b c d e].each do |name|
+        timing.append(file: "spec/#{name}_spec.rb", name: "#{name} passes", time: 10.0)
+      end
+    end
+
+    def latest_samples
+      Binpacker::Timing.new('binpacker.timings').samples.transform_values(&:last)
+    end
+
+    def normalizing_config(enabled)
+      config.tap { |c| allow(c).to receive(:normalize_speed).and_return(enabled) }
+    end
+
+    it "records samples divided by the run's speed factor when normalize_speed is set" do
+      write_slow_history
+
+      described_class.new(normalizing_config(true), report_path: 'report.json').run
+
+      speed = JSON.parse(File.read('report.json'))['speed']
+      expect(speed['factor']).to be < 0.1
+      expect(speed['normalized']).to be true
+      # The factor is the median file's ratio, so that file lands back on its 10s history exactly.
+      expect(latest_samples.values.sort[2]).to be_within(0.001).of(10.0)
+    end
+
+    it 'records wall-clock samples and only reports the factor by default' do
+      write_slow_history
+
+      described_class.new(normalizing_config(false), report_path: 'report.json').run
+
+      speed = JSON.parse(File.read('report.json'))['speed']
+      expect(speed['factor']).to be < 0.1
+      expect(speed['normalized']).to be false
+      expect(latest_samples.values).to all(be < 1.0)
     end
   end
 
@@ -306,6 +369,7 @@ RSpec.describe Binpacker::Orchestrator do
       allow(config).to receive(:worker_count).and_return(1)
       allow(config).to receive(:profile).and_return('default')
       allow(config).to receive(:scheduler).and_return({ 'algorithm' => 'lpt', 'steal_enabled' => true })
+      allow(config).to receive(:normalize_speed).and_return(false)
     end
   end
 end

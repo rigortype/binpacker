@@ -44,6 +44,7 @@ module Binpacker
       @discovered_count = tests.size
       tests = @shard.select(tests: tests, timings: timings, scheduler: scheduler) if @shard
       @selected_count = tests.size
+      @selected_keys = tests.map(&:key)
 
       queues = scheduler.partition(
         tests: tests,
@@ -128,6 +129,7 @@ module Binpacker
         }
       end
       progress.summary(worker_stats)
+      @speed_factor = timing.speed_factor(all_timings)
       write_report(worker_stats, all_timings)
 
       finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
@@ -236,6 +238,7 @@ module Binpacker
         }
       end
       progress.summary(worker_stats)
+      @speed_factor = timing.speed_factor(all_timings)
       write_report(worker_stats, all_timings)
 
       workers.each(&:cleanup)
@@ -251,7 +254,11 @@ module Binpacker
         predicted_loads: @predicted_loads,
         worker_stats: worker_stats,
         all_timings: all_timings,
-        timings: @timings,
+        # Only this run's own tests: the weights cover the whole suite (a shard cuts from all of them), and
+        # comparing them with a slice's measurements lists every other shard's files as "actual 0.0".
+        timings: @timings.slice(*@selected_keys),
+        speed_factor: @speed_factor,
+        normalized: normalize?,
         shard: @shard,
         discovered: @discovered_count,
         selected: @selected_count
@@ -292,7 +299,7 @@ module Binpacker
 
     def finalize(timing, all_timings, all_passed, total_examples, passed_examples, tests)
       unless all_timings.empty?
-        timing.append_all(all_timings)
+        timing.append_all(normalize? ? normalized(all_timings) : all_timings)
         timing.compact!
       end
       empty_filter = minitest_empty_filter?(tests, total_examples)
@@ -305,6 +312,17 @@ module Binpacker
         timings: all_timings,
         empty_filter: empty_filter
       }
+    end
+
+    # `normalize_speed: true` records each sample divided by the run's speed factor (Timing#speed_factor),
+    # so a history fed by runners of different speeds stays on one scale. Off by default: on one machine
+    # the factor is noise around 1.0, and the recorded seconds stop being wall-clock seconds.
+    def normalize?
+      @config.normalize_speed && !@speed_factor.nil?
+    end
+
+    def normalized(entries)
+      entries.map { |e| e.merge(time: e[:time] / @speed_factor) }
     end
 
     def minitest_empty_filter?(tests, total_examples)

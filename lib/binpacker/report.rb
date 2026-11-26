@@ -10,13 +10,15 @@ module Binpacker
     DRIFT_LIMIT = 10
 
     def initialize(profile:, algorithm:, predicted_loads:, worker_stats:, all_timings:, timings:,
-                   shard: nil, discovered: nil, selected: nil)
+                   speed_factor: nil, normalized: false, shard: nil, discovered: nil, selected: nil)
       @profile = profile
       @algorithm = algorithm
       @predicted_loads = predicted_loads
       @worker_stats = worker_stats
       @all_timings = all_timings
       @timings = timings
+      @speed_factor = speed_factor
+      @normalized = normalized
       @shard = shard
       @discovered = discovered
       @selected = selected
@@ -38,6 +40,10 @@ module Binpacker
         balance: {
           predicted_deviation_pct: deviation_pct(predicted),
           actual_deviation_pct: deviation_pct(actual)
+        },
+        speed: {
+          factor: @speed_factor&.round(3),
+          normalized: @normalized
         },
         drift: drift
       }
